@@ -26,11 +26,9 @@ struct Cell{
 }
 
 fn parse_loc(loc_arg: &String) -> CellLoc {
-    println!("parse_loc: loc_arg: {}", loc_arg);
     let mut buf_col = String::new();
     let mut buf_row = String::new();
     for c in loc_arg.chars() {
-        println!("{}", c);
         if c.is_alphabetic() {
             buf_col.push(c);
         }
@@ -38,8 +36,6 @@ fn parse_loc(loc_arg: &String) -> CellLoc {
             buf_row.push(c);
         }
     }
-    println!("buf_col: {}", buf_col);
-    println!("buf_row: {}", buf_row);
     CellLoc {
         col: buf_col,
         row: buf_row.parse::<i32>().unwrap(),
@@ -47,9 +43,15 @@ fn parse_loc(loc_arg: &String) -> CellLoc {
 }
 
 fn parse_val(val_arg: &String) -> CellVal {
-    println!("parse_val: val_arg: {}", val_arg);
-    CellVal::Int(val_arg.parse::<i32>().unwrap())
+    match val_arg.parse::<i32>() {  // try parse as int first
+        Ok(val) => CellVal::Int(val),
+        _ => match val_arg.parse::<f64>() {  // try parse as real next
+            Ok(val) => CellVal::Real(val),
+            _ => CellVal::Text(val_arg.clone())  // otherwise parse as text
+        }
+    }
 }
+
 
 /* 
 fn write_cell(loc: &CellLoc, val: &CellVal) {
