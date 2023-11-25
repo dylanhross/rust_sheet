@@ -140,6 +140,36 @@ impl Sheet {
         }
     }
 
+    fn delete_cell (&mut self, loc: CellLoc) {
+        // deletes the selected cell
+        // do nothing if there is no cell there
+        let mut found_cell = false;
+        let mut rm_idx: usize = 0;
+        let col_idx = Sheet::col_to_index(&loc.col);
+        if col_idx < self.n_cols {
+            let col = &self.cols[col_idx];
+            for (i, cell) in col.iter().enumerate() {
+                if cell.loc.row == loc.row {
+                    eprintln!("found a cell at loc: {:?}", loc);
+                    found_cell = true;
+                    rm_idx = i;
+                    break;
+                }
+            }
+        }
+        // report to stderr that we could not find a cell
+        if found_cell {
+            // remove returns the removed element 
+            // so just store in a throwaway variable
+            let _ = self.cols[col_idx].remove(rm_idx);
+            eprintln!("deleted cell")
+        } else {
+            eprintln!("did not find a cell at loc: {:?}", loc);
+            eprintln!("nothing to delete")
+        }
+    }
+
+
     fn shrink (&mut self) {
         // figure out how many columns at the end of cols 
         // are empty and can be removed
@@ -242,6 +272,16 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
             eprintln!("parsed cell location: {:?}", loc);
             sheet.read_cell(loc);
         },
+        "delete_cell" => {
+            if n_other_args != 1 {
+                eprintln!("delete_cell subcommand takes 1 arg: <loc>");
+                process::exit(1);
+            }
+            eprintln!("subcommand: {}", subcommand);
+            let loc = parse_loc(&other_args[0]);
+            eprintln!("parsed cell location: {:?}", loc);
+            sheet.delete_cell(loc);
+        },
         "count_rows" => {
             eprintln!("subcommand: {}", subcommand);
             // print the number of rows in the sheet to stdout
@@ -289,8 +329,19 @@ fn main () {
     sheet.write_cell(CellLoc { col: String::from("B"), row: (1) }, CellVal::Int(1));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (3) }, CellVal::Int(3));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (5) }, CellVal::Int(5));
+    sheet.write_cell(CellLoc { col: String::from("C"), row: (3) }, CellVal::Real(3.));
+    sheet.write_cell(CellLoc { col: String::from("C"), row: (6) }, CellVal::Real(6.));
+    sheet.write_cell(CellLoc { col: String::from("C"), row: (9) }, CellVal::Real(9.));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (4) }, CellVal::Text(String::from("four")));
     //eprintln!("sheet: {:?}", sheet);
+
+    eprintln!("----------");
+    eprintln!("cols: {} rows: {}", sheet.n_cols, sheet.n_rows);
+    sheet.delete_cell(CellLoc { col: String::from("C"), row: (9) });
+    eprintln!("cols: {} rows: {}", sheet.n_cols, sheet.n_rows);
+    sheet.shrink();
+    eprintln!("cols: {} rows: {}", sheet.n_cols, sheet.n_rows);
+    eprintln!("----------");
 
     // parse arguments
     let args: Vec<String> = env::args().collect();

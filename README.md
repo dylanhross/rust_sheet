@@ -23,6 +23,7 @@ Try to learn rust by writing a basic spreadsheet engine: `rustsheet`
 		- `add_row` - add a new row to the sheet (just increases the `n_rows` attribute of `Sheet`)
 		- `add_col` - a new column to the sheet
 		- `shrink` - reduce the number of rows and columns in the sheet to the minimum amount necessary to hold all non-null cells
+		- `delete_cell <loc>` - delete the cell (if any) at `loc`
 	- subcommands that return information (_e.g._ `read_cell`, `count_rows`) just print the result to stdout, others (_e.g._ `write_cell`, `add_row`) just modify the sheet state (in `sheet.json`)
 	- indexing (`<loc>`) is in typical `<upper_letter><number>` format where the letter portion denotes the column (A, B, C, ...) and the number denotes the row (1, 2, 3, ...)
 - _BONUS_: write up a simple Python/tkinter GUI app for viewing/interacting with the spreadsheet engine (via CLI on the backend)
@@ -33,13 +34,13 @@ sheet state stored in `sheet.json` with the following layout
 {
 	// store current extent of sheet
 	// some columns/rows may be full of null cells
-	n_cols: 4,
-	n_rows: 20,
+	"n_cols": 4,
+	"n_rows": 20,
 	// store non-null cell data
 	// key: location
 	// value: cell value (type inferred from value)
 	// ordered by column, row (A1, A2, A3, B1, B2, ...)
-	cells: {
+	"cells": {
 		"A1": 123,
 		"B2": 1.23,
 		"C3": "one two three",
