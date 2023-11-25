@@ -15,7 +15,7 @@ enum CellVal {
 #[derive(Debug)]
 struct CellLoc {
     col: String,
-    row: i32,
+    row: usize,
 }
 
 
@@ -29,25 +29,79 @@ struct Cell{
 #[derive(Debug)]
 struct Sheet {
     cols: Vec<Vec<Cell>>,
-    n_cols: u32,
-    n_rows: u32,
+    n_cols: usize,
+    n_rows: usize,
 }
 
 impl Sheet {
     fn new () -> Sheet {
         let cols: Vec<Vec<Cell>> = Vec::new();
         let sheet = Sheet {
-            cols: cols,
+            cols,
+            // the data in the sheet are stored sparse so only
+            // cells with actual values are explicitly stored
+            // n_cols and n_rows reflect the number of columns
+            // and rows that would be needed to fully contain
+            // all of the cells with explicit values
             n_cols: 0,
             n_rows: 0,
         };
         sheet
     }
 
+    fn col_to_index (col: &String) -> usize {
+        let mut idx: usize = 0;
+        let base: usize = 26;
+        // iterate index letters from right to left 
+        for (i, c) in col.chars().rev().enumerate() {
+            idx += base.pow(i as u32) * (c as usize - 64);
+        }
+        // 0 indexed
+        idx - 1
+    }
+
+    fn add_col (&mut self) {
+        self.cols.push(Vec::new());
+        self.n_cols += 1;
+    }
+
+    fn write_cell(&mut self, loc: CellLoc, val: CellVal) {
+        // find out the column index, add columns if it is 
+        // byond the current bounds of the sheet
+        let col_idx = Sheet::col_to_index(&loc.col);
+        while col_idx > self.n_cols {
+            self.add_col();
+        }
+        // now there are for sure enough columns in the sheet
+        // add the cell to the appropriate position in the column
+        // vector (sorted by row number)
+        let col = &mut self.cols[col_idx];
+        if loc.row > col.len() || loc.row > col.last().unwrap().loc.row {
+            col.push(Cell { loc, val, });
+        } else {
+            let mut added = false;
+            let mut row_idx = col.len();
+            for cell in col.iter_mut().rev() {
+                // replace the value in an existing cell
+                if loc.row == cell.loc.row {
+                    cell.val = val;
+                    added = true;
+                } else {
+                    if loc.row < cell.loc.row {
+                        row_idx -= 1;
+                    }
+                }
+            }
+            if !added {
+                //col.insert(row_idx, Cell { loc, val, });
+            }
+        }
+
+    }
 }
 
 
-fn parse_loc(loc_arg: &String) -> CellLoc {
+fn parse_loc (loc_arg: &String) -> CellLoc {
     let mut buf_col = String::new();
     let mut buf_row = String::new();
     let mut number_flag = false;
@@ -80,12 +134,12 @@ fn parse_loc(loc_arg: &String) -> CellLoc {
     }
     CellLoc {
         col: buf_col,
-        row: buf_row.parse::<i32>().unwrap(),
+        row: buf_row.parse::<usize>().unwrap(),
     }
 }
 
 
-fn parse_val(val_arg: &String) -> CellVal {
+fn parse_val (val_arg: &String) -> CellVal {
     match val_arg.parse::<i32>() {  // try parse as int first
         Ok(val) => CellVal::Int(val),
         _ => match val_arg.parse::<f64>() {  // try parse as real next
@@ -96,12 +150,7 @@ fn parse_val(val_arg: &String) -> CellVal {
 }
 
 
-fn write_cell(sht: &mut Sheet, loc: CellLoc, val: CellVal) {
-    eprintln!("<write_cell>");
-}
-
-
-fn handle_subcommand(subcommand: &String, other_args: &[String], sheet: &mut Sheet) {
+fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sheet) {
     let n_other_args = other_args.len();
     match subcommand.as_str() {
         "write_cell" => {
@@ -114,7 +163,7 @@ fn handle_subcommand(subcommand: &String, other_args: &[String], sheet: &mut She
             eprintln!("parsed cell location: {:?}", loc);
             let val = parse_val(&other_args[1]);
             eprintln!("parsed cell value: {:?}", val);
-            write_cell(sheet, loc, val);
+            sheet.write_cell(loc, val);
         },
         "read_cell" => {
             if n_other_args != 1 {
@@ -131,8 +180,7 @@ fn handle_subcommand(subcommand: &String, other_args: &[String], sheet: &mut She
     }
 }
 
-
-fn main() {
+fn main () {
 
     // init the sheet
     let mut sheet = Sheet::new();
