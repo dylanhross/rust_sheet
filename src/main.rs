@@ -66,6 +66,10 @@ impl Sheet {
         self.n_cols += 1;
     }
 
+    fn add_row (&mut self) {
+        self.n_rows += 1;
+    }
+
     fn write_cell (&mut self, loc: CellLoc, val: CellVal) {
         // find out the column index, add columns if it is 
         // beyond the current bounds of the sheet
@@ -210,6 +214,29 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
             eprintln!("parsed cell location: {:?}", loc);
             sheet.read_cell(loc);
         },
+        "count_rows" => {
+            eprintln!("subcommand: {}", subcommand);
+            // print the number of rows in the sheet to stdout
+            println!("{}", sheet.n_rows);
+        },
+        "count_cols" => {
+            eprintln!("subcommand: {}", subcommand);
+            // print the number of cols in the sheet to stdout
+            println!("{}", sheet.n_cols);
+        }
+        "add_row" => {
+            eprintln!("subcommand: {}", subcommand);
+            eprintln!("rows before: {}", sheet.n_rows);
+            sheet.add_row();
+            eprintln!("rows after: {}", sheet.n_rows);
+        },
+        "add_col" => {
+            eprintln!("subcommand: {}", subcommand);
+            // print the number of cols in the sheet to stdout
+            eprintln!("cols before: {}", sheet.n_cols);
+            sheet.add_col();
+            eprintln!("cols after: {}", sheet.n_cols);
+        }
         _ => {
             eprintln!("unrecognized subcommand: {}", subcommand);
             process::exit(1);
@@ -230,7 +257,7 @@ fn main () {
     sheet.write_cell(CellLoc { col: String::from("B"), row: (3) }, CellVal::Int(3));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (5) }, CellVal::Int(5));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (4) }, CellVal::Text(String::from("four")));
-    eprintln!("sheet: {:?}", sheet);
+    //eprintln!("sheet: {:?}", sheet);
 
     // parse arguments
     let args: Vec<String> = env::args().collect();
@@ -242,5 +269,5 @@ fn main () {
     let other_args = &args[2..];
     handle_subcommand(subcommand, other_args, &mut sheet);
     
-    eprintln!("sheet: {:?}", sheet);
+    //eprintln!("sheet: {:?}", sheet);
 }
