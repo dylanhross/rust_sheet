@@ -3,6 +3,7 @@
 
 use std::env;
 use std::process;
+use std::mem;
 
 
 #[derive(Debug)]
@@ -100,7 +101,9 @@ impl Sheet {
             if ins_flg {
                 col.insert(ins_idx, new_cell);
             } else {
-                eprintln!("we are supposed to change the value of an existing cell but idk how to do that yet");
+                // replace returns the element that was replaced
+                // so store that in a throwaway variable
+                let _ = mem::replace(&mut col[ins_idx], new_cell);
             }
         }
         // update Sheet.n_rows if needed
