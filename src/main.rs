@@ -81,6 +81,27 @@ impl Sheet {
         if col.len() == 0 || row > col.last().unwrap().loc.row {
             // add to end if cols is empty or row greater than row of last cell
             col.push(new_cell);
+        } else {
+            // determine the insertion index of the cell
+            let mut ins_idx: usize = 0;
+            let mut ins_flg = true;
+            for cell in col.iter() {
+                if cell.loc.row == row {
+                    ins_flg = false;
+                    break;
+                }
+                if row < cell.loc.row {
+                    break;
+                } else {
+                    ins_idx += 1;
+                }
+            }
+            //
+            if ins_flg {
+                col.insert(ins_idx, new_cell);
+            } else {
+                eprintln!("we are supposed to change the value of an existing cell but idk how to do that yet");
+            }
         }
         // update Sheet.n_rows if needed
         if row > self.n_rows {
@@ -173,10 +194,14 @@ fn main () {
 
     // init the sheet
     let mut sheet = Sheet::new();
-    eprintln!("sheet: {:?}", sheet);
 
     // add some values to the sheet
     sheet.write_cell(CellLoc { col: String::from("A"), row: (1) }, CellVal::Int(1));
+    sheet.write_cell(CellLoc { col: String::from("A"), row: (3) }, CellVal::Int(3));
+    sheet.write_cell(CellLoc { col: String::from("A"), row: (5) }, CellVal::Int(5));
+    sheet.write_cell(CellLoc { col: String::from("B"), row: (1) }, CellVal::Int(1));
+    sheet.write_cell(CellLoc { col: String::from("B"), row: (3) }, CellVal::Int(3));
+    sheet.write_cell(CellLoc { col: String::from("B"), row: (5) }, CellVal::Int(5));
     eprintln!("sheet: {:?}", sheet);
 
     // parse arguments
