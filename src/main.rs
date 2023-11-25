@@ -4,6 +4,7 @@
 use std::env;
 use std::process;
 use std::mem;
+use std::cmp;
 
 
 #[derive(Debug)]
@@ -12,6 +13,7 @@ enum CellVal {
     Real(f64),
     Text(String),
 }
+
 
 #[derive(Debug)]
 struct CellLoc {
@@ -116,7 +118,7 @@ impl Sheet {
         }
     }
 
-    fn read_cell (&mut self, loc: CellLoc) {
+    fn read_cell (&self, loc: CellLoc) {
         // prints the value of the selected cell to stdout
         // prints nothing if there is no cell there
         let mut found_cell = false;
@@ -136,6 +138,32 @@ impl Sheet {
         if !found_cell {
             eprintln!("did not find a cell at loc: {:?}", loc);
         }
+    }
+
+    fn shrink (&mut self) {
+        // figure out how many columns at the end of cols 
+        // are empty and can be removed
+        let mut trim_cols: usize = 0;
+        for col in self.cols.iter().rev() {
+            if col.is_empty() {
+                trim_cols += 1;
+            }
+        }
+        eprintln!("removing {} empty columns from the end", trim_cols);
+        while trim_cols > 0 {
+            let _ = self.cols.pop();
+            trim_cols -= 1;
+            self.n_cols -= 1;
+        }
+        // set self.n_rows to whatever the maximum row is 
+        let mut max_row: usize = 0;
+        for col in self.cols.iter() {
+            for cell in col {
+                max_row = cmp::max(cell.loc.row, max_row);
+            }
+        }
+        eprintln!("shrinking rows from {} to {}", self.n_rows, max_row);
+        self.n_rows = max_row;
     }
 }
 
@@ -236,13 +264,18 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
             eprintln!("cols before: {}", sheet.n_cols);
             sheet.add_col();
             eprintln!("cols after: {}", sheet.n_cols);
-        }
+        },
+        "shrink" => {
+            eprintln!("subcommand: {}", subcommand);
+            sheet.shrink();
+        },
         _ => {
             eprintln!("unrecognized subcommand: {}", subcommand);
             process::exit(1);
         },
     }
 }
+
 
 fn main () {
 
