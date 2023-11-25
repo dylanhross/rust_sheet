@@ -67,36 +67,25 @@ impl Sheet {
 
     fn write_cell(&mut self, loc: CellLoc, val: CellVal) {
         // find out the column index, add columns if it is 
-        // byond the current bounds of the sheet
+        // beyond the current bounds of the sheet
         let col_idx = Sheet::col_to_index(&loc.col);
-        while col_idx > self.n_cols {
+        while col_idx >= self.n_cols {
             self.add_col();
         }
         // now there are for sure enough columns in the sheet
         // add the cell to the appropriate position in the column
         // vector (sorted by row number)
         let col = &mut self.cols[col_idx];
-        if loc.row > col.len() || loc.row > col.last().unwrap().loc.row {
-            col.push(Cell { loc, val, });
-        } else {
-            let mut added = false;
-            let mut row_idx = col.len();
-            for cell in col.iter_mut().rev() {
-                // replace the value in an existing cell
-                if loc.row == cell.loc.row {
-                    cell.val = val;
-                    added = true;
-                } else {
-                    if loc.row < cell.loc.row {
-                        row_idx -= 1;
-                    }
-                }
-            }
-            if !added {
-                //col.insert(row_idx, Cell { loc, val, });
-            }
+        let row = loc.row;
+        let new_cell = Cell {loc, val};
+        if col.len() == 0 || row > col.last().unwrap().loc.row {
+            // add to end if cols is empty or row greater than row of last cell
+            col.push(new_cell);
         }
-
+        // update Sheet.n_rows if needed
+        if row > self.n_rows {
+            self.n_rows = row;
+        }
     }
 }
 
@@ -184,6 +173,10 @@ fn main () {
 
     // init the sheet
     let mut sheet = Sheet::new();
+    eprintln!("sheet: {:?}", sheet);
+
+    // add some values to the sheet
+    sheet.write_cell(CellLoc { col: String::from("A"), row: (1) }, CellVal::Int(1));
     eprintln!("sheet: {:?}", sheet);
 
     // parse arguments
