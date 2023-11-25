@@ -10,7 +10,7 @@ Try to learn rust by writing a basic spreadsheet engine: `rustsheet`
 	- cells each hold a single value with one of a few possible data types
 		- Int (`i32`)
 		- Real (`f64`)
-		- Text (`&str`) → a fun addition would be two separate string cell types where one is just a string and the other is a formula string that can operate on other cells
+		- Text (`String`) → a fun addition would be two separate string cell types where one is just a string and the other is a formula string that can operate on other cells
 		- ~~null (no value)~~ no need to explicitly store null cells, just store cells with actual values
 - sheet state is stored in a json file managed by this program (`sheet.json`)
 - command-line interface for modifying state

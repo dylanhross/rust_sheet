@@ -66,7 +66,7 @@ impl Sheet {
         self.n_cols += 1;
     }
 
-    fn write_cell(&mut self, loc: CellLoc, val: CellVal) {
+    fn write_cell (&mut self, loc: CellLoc, val: CellVal) {
         // find out the column index, add columns if it is 
         // beyond the current bounds of the sheet
         let col_idx = Sheet::col_to_index(&loc.col);
@@ -109,6 +109,28 @@ impl Sheet {
         // update Sheet.n_rows if needed
         if row > self.n_rows {
             self.n_rows = row;
+        }
+    }
+
+    fn read_cell (&mut self, loc: CellLoc) {
+        // prints the value of the selected cell to stdout
+        // prints nothing if there is no cell there
+        let mut found_cell = false;
+        let col_idx = Sheet::col_to_index(&loc.col);
+        if col_idx < self.n_cols {
+            let col = &self.cols[col_idx];
+            for cell in col {
+                if cell.loc.row == loc.row {
+                    eprintln!("found a cell at loc: {:?}", loc);
+                    println!("{:?}", cell.val);
+                    found_cell = true;
+                    break;
+                }
+            }
+        }
+        // report to stderr that we could not find a cell
+        if !found_cell {
+            eprintln!("did not find a cell at loc: {:?}", loc);
         }
     }
 }
@@ -183,8 +205,10 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
                 eprintln!("read_cell subcommand takes 1 arg: <loc>");
                 process::exit(1);
             }
+            eprintln!("subcommand: {}", subcommand);
             let loc = parse_loc(&other_args[0]);
             eprintln!("parsed cell location: {:?}", loc);
+            sheet.read_cell(loc);
         },
         _ => {
             eprintln!("unrecognized subcommand: {}", subcommand);
@@ -205,6 +229,7 @@ fn main () {
     sheet.write_cell(CellLoc { col: String::from("B"), row: (1) }, CellVal::Int(1));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (3) }, CellVal::Int(3));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (5) }, CellVal::Int(5));
+    sheet.write_cell(CellLoc { col: String::from("B"), row: (4) }, CellVal::Text(String::from("four")));
     eprintln!("sheet: {:?}", sheet);
 
     // parse arguments
