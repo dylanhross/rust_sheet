@@ -5,21 +5,113 @@
 
 from tkinter import *
 from tkinter import ttk
+import subprocess
+import re
 
 
 class Backend:
+    """ 
+    interface for interacting with the rust_sheet spreadsheet 
+    engine via a CLI
+    """
+
+    def __init__(self, stderr_cb):
+        # sheet state is stored in 2D list shape: (columns, rows)
+        # empty cells stored as None
+        # cells with values stored as dict: {'t' cell type, 'v': cell value}
+        self.sheet = [[]]
+        self.n_cols = 0
+        self.n_rows = 0
+        self._exe = './target/debug/rust_sheet'
+        # use this callback (already with the <BACKEND> prefix) to disbatch any
+        # messages from the backend that are issued to stderr
+        self._stderr_cb = lambda msg: stderr_cb('BACKEND', msg)
+        self._val_pat = re.compile(r'(?P<t>[A-Za-z]+)[(](?P<v>.+)[)]')
+
+    def _run(self, subcommand, other_args=[]):
+        """ 
+        run a subcommand, 
+        dispatch any stderr messages to the front end via callback,
+        return stdout as list of lines """
+        cmd = [self._exe, subcommand] + other_args
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        for line in result.stderr.splitlines():
+            self._stderr_cb(line)
+        return result.stdout.splitlines()
+
+    def _fill_sheet_with_nones(self):
+        """ 
+        fills self.sheet with Nones so that it has the proper 
+        number of columns and rows 
+        """
+        # clear the sheet out first
+        self.sheet = []
+        for i in range(self.n_cols):
+            self.sheet.append([None for _ in range(self.n_rows)])
+
+    def _col_to_idx(self, col):
+        idx = 0
+        for i, c in enumerate(col[::-1].encode()):
+            idx += 26**i * (c - 64)
+        return idx
+
+    def _parse_loc(self, loc):
+        """ returns (column, row) both as indices into self.sheet """
+        buf_col = ""
+        buf_row = ""
+        for c in loc:
+            if c.isalpha():
+                buf_col += c
+            else:
+                buf_row += c
+        return self._col_to_idx(buf_col), int(buf_row) - 1
+    
+    def _parse_val(self, val):
+        """ returns {'t': cell_type, 'v': cell_value} """
+        parsed = self._val_pat.match(val).groupdict()
+        if parsed['t'] == 'Int':
+            parsed['v'] = int(parsed['v'])
+        elif parsed['t'] == 'Real':
+            parsed['v'] = float(parsed['v'])
+        else:
+            parsed['v'] = parsed['v'].strip('"')
+        return parsed
+
+    def _update_sheet(self, stdout_lines):
+        """ update the sheet """
+        nc_nr, *cell_lines = stdout_lines
+        self.n_cols, self.n_rows = [int(_) for _ in nc_nr.split()]
+        self._fill_sheet_with_nones()
+        for cell_line in cell_lines:
+            loc, val = cell_line.split(maxsplit=1)
+            col, row = self._parse_loc(loc)
+            val = self._parse_val(val)
+            self.sheet[col][row] = val
+
+    def read_sheet(self):
+        """
+        loads the sheet state via the read_sheet subcommand
+        """
+        self._update_sheet(self._run('read_sheet'))
+        
+
+class GUI:
+    """
+    tkinter GUI app
+    """
 
     def __init__(self):
-        pass
-
-
-class App:
-
-    def __init__(self):
-        # initialize the window layout and widgets
+        # init the window layout and widgets
         self._setup_win()
         self._setup_main_frm()
-        self._setup_upper_lower_frm()
+        self._setup_upper_frm()
+        self._setup_mid_frm()
+        self._setup_lower_frm()
+        # init the backend 
+        self._backend = Backend(self._txt_writeln)
+        self._backend.read_sheet()
+        # draw the sheet
+        self._draw_sheet()
         # start up the window main loop
         self.win.mainloop()
 
@@ -37,22 +129,47 @@ class App:
         self.main_frm = ttk.Frame(self.win, padding=(5, 5, 5, 5))
         self.main_frm.grid(row=0, column=0, sticky=(N, S, E, W))
         # set up the main frame's grid structure
-        self.main_frm.rowconfigure(0, weight=1)
-        self.main_frm.rowconfigure(1, minsize=60, weight=0)
+        self.main_frm.rowconfigure(0, minsize=10, weight=0)
+        self.main_frm.rowconfigure(1, weight=1)
+        self.main_frm.rowconfigure(2, minsize=60, weight=0)
         self.main_frm.columnconfigure(0, weight=1)
 
-    def _setup_upper_lower_frm(self):
+    def _setup_upper_frm(self):
         # upper frame layout
         self.upper_frm = ttk.Frame(self.main_frm, padding=(5, 5, 5, 5))
         self.upper_frm.grid(row=0, column=0, sticky=(N, S, E, W))
         self.upper_frm.rowconfigure(0, weight=1)
         self.upper_frm.columnconfigure(0, weight=1)
         # upper frame widgets
-        self.cvs = Canvas(self.upper_frm, relief=SUNKEN, borderwidth=2)
-        self.cvs.grid(sticky=(N, S, E, W))
+        # clear button
+        self._setup_clr_btn()
+
+    def _setup_clr_btn(self):
+        self.clr_btn = ttk.Button(self.upper_frm, text='Clear Sheet', command=self._clr_btn_cb)
+        self.clr_btn.pack(anchor=E)
+
+    def _clr_btn_cb(self):
+        """ callback for the Clear Sheet button """
+        self._txt_writeln('GUI', 'hit the clear button')
+
+    def _setup_mid_frm(self):
+        # mid frame layout
+        self.mid_frm = ttk.Frame(self.main_frm, padding=(5, 5, 5, 5))
+        self.mid_frm.grid(row=1, column=0, sticky=(N, S, E, W))
+        self.mid_frm.rowconfigure(0, weight=1)
+        self.mid_frm.columnconfigure(0, weight=1)
+        # mid frame widgets
+        # canvas
+        self._setup_cnvs()
+
+    def _setup_cnvs(self):
+        self.cnvs = Canvas(self.mid_frm, relief=SUNKEN, borderwidth=2, highlightthickness=0)
+        self.cnvs.grid(sticky=(N, S, E, W))
+
+    def _setup_lower_frm(self):
         # lower frame layout
         self.lower_frm = ttk.Frame(self.main_frm, padding=(5, 5, 5, 5))
-        self.lower_frm.grid(row=1, column=0, sticky=(N, S, E, W))
+        self.lower_frm.grid(row=2, column=0, sticky=(N, S, E, W))
         self.lower_frm.rowconfigure(0, weight=1)
         self.lower_frm.columnconfigure(0, weight=1)
         self.lower_frm.columnconfigure(1, minsize=5)
@@ -64,44 +181,24 @@ class App:
         self.txt.grid(row=0, column=0, sticky=(N, S, E, W))
         self.txt_scrl.config(command=self.txt.yview)
 
-    def _setup_upper_lower_frm(self):
-        # upper frame layout
-        self.upper_frm = ttk.Frame(self.main_frm, padding=(5, 5, 5, 5))
-        self.upper_frm.grid(row=0, column=0, sticky=(N, S, E, W))
-        self.upper_frm.rowconfigure(0, weight=1)
-        self.upper_frm.columnconfigure(0, weight=1)
-        # upper frame widgets
-        self.cvs = Canvas(self.upper_frm, relief=SUNKEN, borderwidth=2)
-        self.cvs.grid(sticky=(N, S, E, W))
-        # lower frame layout
-        self.lower_frm = ttk.Frame(self.main_frm, padding=(5, 5, 5, 5))
-        self.lower_frm.grid(row=1, column=0, sticky=(N, S, E, W))
-        self.lower_frm.rowconfigure(0, weight=1)
-        self.lower_frm.columnconfigure(0, weight=1)
-        self.lower_frm.columnconfigure(1, minsize=5)
-        # lower frame widgets
-        self.txt_scrl = ttk.Scrollbar(self.lower_frm, orient='vertical')
-        self.txt_scrl.grid(row=0, column=1, sticky=(N, S))
-        self.txt = Text(self.lower_frm, relief=SUNKEN, borderwidth=2, height=5, 
-                        highlightthickness=0, state=DISABLED, yscrollcommand=self.txt_scrl.set)
-        self.txt.grid(row=0, column=0, sticky=(N, S, E, W))
-        self.txt_scrl.config(command=self.txt.yview)
-
-    def _txt_writeln(self, line):
+    def _txt_writeln(self, prefix, line):
         """ 
-            method for writing lines to the textbox 
+        method for writing lines to the textbox 
 
-            the textbox is read-only from the front end, but the app
-            will redirect all stderr messages from the backend into it
+        the textbox is read-only from the front end, but the app
+        will redirect all stderr messages from the backend into it
         """
         self.txt['state'] = NORMAL
-        self.txt.insert(INSERT, '\n' + line)
+        self.txt.insert(INSERT, '\n' + '<{}> '.format(prefix) + line)
         self.txt.see(END)
         self.txt['state'] = DISABLED
 
+    def _draw_sheet(self):
+        """ draw sheet (stored in the backend) into the canvas """
+
 
 def main():
-    app = App()
+    app = GUI()
 
 
 if __name__ == '__main__':
