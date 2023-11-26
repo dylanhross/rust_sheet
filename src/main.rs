@@ -346,6 +346,17 @@ impl Sheet {
         found_cell
     }
 
+    fn clear_sheet (&mut self) {
+        // completely clears out the sheet by rewriting sheet.txt 
+        // then reloading it
+        eprintln!("clearing sheet");
+        let file = fs::File::create("./sheet.txt").unwrap();
+        let mut buf = io::BufWriter::new(file);
+        // first print <n_cols> <n_rows>s
+        let _ = buf.write(b"0 0\n").unwrap();
+        let _ = buf.flush().unwrap();
+    }
+
     fn shrink (&mut self) -> bool {
         // figure out how many columns at the end of cols 
         // are empty and can be removed
@@ -450,6 +461,10 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
         "shrink" => {
             eprintln!("subcommand: {}", subcommand);
             modified = sheet.shrink();
+        },
+        "clear_sheet" => {
+            eprintln!("subcommand: {}", subcommand);
+            sheet.clear_sheet();
         },
         _ => {
             eprintln!("unrecognized subcommand: {}", subcommand);
