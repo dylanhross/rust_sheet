@@ -5,6 +5,9 @@ use std::env;
 use std::process;
 use std::mem;
 use std::cmp;
+use std::io::{self, BufRead};
+use std::fs;
+use std::path;
 
 
 #[derive(Debug)]
@@ -15,10 +18,59 @@ enum CellVal {
 }
 
 
+fn parse_val (val_arg: &String) -> CellVal {
+    match val_arg.parse::<i32>() {  // try parse as int first
+        Ok(val) => CellVal::Int(val),
+        _ => match val_arg.parse::<f64>() {  // try parse as real next
+            Ok(val) => CellVal::Real(val),
+            _ => CellVal::Text(val_arg.clone())  // otherwise parse as text
+        }
+    }
+}
+
+
 #[derive(Debug)]
 struct CellLoc {
     col: String,
     row: usize,
+}
+
+
+fn parse_loc (loc_arg: &String) -> CellLoc {
+    let mut buf_col = String::new();
+    let mut buf_row = String::new();
+    let mut number_flag = false;
+    let mut letter_flag = false;
+    for c in loc_arg.chars() {
+        if c.is_alphabetic() {
+            letter_flag = true;
+            buf_col.push(c.to_ascii_uppercase());  // convert to uppercase letter if not already
+            // simple check to make sure the location is in a usable form
+            // just make sure that is is composed of letters then numbers
+            if number_flag {
+                eprintln!("bad cell location: {}", loc_arg);
+                process::exit(1);
+            }
+        }
+        else if c.is_numeric() {
+            // another simple check to make sure there were actually letters first
+            if !letter_flag {
+                eprintln!("bad cell location: {}", loc_arg);
+                process::exit(1);
+            }
+            number_flag = true;
+            buf_row.push(c);
+        }
+    }
+    // another simple check to make sure there were numbers
+    if !number_flag {
+        eprintln!("bad cell location: {}", loc_arg);
+        process::exit(1);
+    }
+    CellLoc {
+        col: buf_col,
+        row: buf_row.parse::<usize>().unwrap(),
+    }
 }
 
 
@@ -29,12 +81,78 @@ struct Cell{
 }
 
 
+fn read_lines<P> (filename: P) -> io::Result<io::Lines<io::BufReader<fs::File>>>
+where P: AsRef<path::Path>, {
+    // taken from https://doc.rust-lang.org/rust-by-example/std_misc/file/read_lines.html
+    // this is supposed to be a lot more efficient than the naive approach which
+    // involves putting every line of the file into Strings in memory 
+    // The output is wrapped in a Result to allow matching on errors
+    // Returns an Iterator to the Reader of the lines of the file.
+    let file = fs::File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
+
+
+fn parse_first_line (line: &String) -> (usize, usize) {
+    // first line gets parsed as "<n_cols> <n_rows>"
+    let mut buf_cols = String::new();
+    let mut buf_rows = String::new();
+    let mut space_flag = false;
+    for c in line.chars() {
+        if c != ' ' {
+            if space_flag {
+                buf_rows.push(c);
+            } else {
+                buf_cols.push(c);
+            }
+        } else {
+            space_flag = true;
+        }
+    }
+    (buf_cols.parse::<usize>().unwrap(), buf_rows.parse::<usize>().unwrap())
+}
+
+
+fn parse_line (line: &String) -> (CellLoc, CellVal) {
+    // all other lines after the first are parsed as "<loc> <val>"
+    let mut buf_loc = String::new();
+    let mut buf_val = String::new();
+    let mut space_flag = false;
+    let mut paren_flag = false;
+    for c in line.chars() {
+        if c != ' ' {
+            if space_flag {
+                if paren_flag {
+                    if c == ')' {
+                        paren_flag = false;
+                    } else {
+                        if c != '"' {  // ignore quotes from Text(...) values 
+                            buf_val.push(c);
+                        }
+                    }
+                } else {
+                    if c == '(' {
+                        paren_flag = true;
+                    }
+                }
+            } else {
+                buf_loc.push(c);
+            }
+        } else {
+            space_flag = true;
+        }
+    }
+    (parse_loc(&buf_loc), parse_val(&buf_val))
+}
+
+
 #[derive(Debug)]
 struct Sheet {
     cols: Vec<Vec<Cell>>,
     n_cols: usize,
     n_rows: usize,
 }
+
 
 impl Sheet {
     fn new () -> Sheet {
@@ -53,7 +171,39 @@ impl Sheet {
     }
 
     fn load_sheet (&mut self) {
-        eprintln!("not implemented yet");
+        eprintln!("loading sheet state from file (sheet.txt)");
+        // File sheet.txt must exist in the current path
+        if let Ok(lines) = read_lines("./sheet.txt") {
+            let mut n_cells: usize = 0;
+            // Consumes the iterator, returns an (Optional) String
+            for (i, line) in lines.enumerate() {
+                if i == 0 {
+                    // parse the first line as "<n_cols> <n_rows>"
+                    if let Ok(line) = line {
+                        let (n_cols, n_rows) = parse_first_line(&line);
+                        self.n_rows = n_rows;
+                        // add enough column vectors to match the specified sheet dimensions
+                        while self.cols.len() < n_cols {
+                            self.add_col();
+                        }
+                        eprintln!("loaded dimensions: {} cols, {} rows", n_cols, n_rows);
+                    }
+                } else {
+                    // parse all of the rest of the lines as "<loc> <val>"
+                    
+                    if let Ok(line) = line {
+                        let (loc, val) = parse_line(&line);
+                        self.write_cell(loc, val);
+                        n_cells += 1;
+                    }
+                }
+            }
+            eprintln!("loaded {} cells", n_cells);
+        }
+    }
+
+    fn save_sheet (&self) {
+        eprintln!("save sheet not implemented yet");
     }
 
     fn col_to_index (col: &String) -> usize {
@@ -154,9 +304,10 @@ impl Sheet {
         }
     }
 
-    fn delete_cell (&mut self, loc: CellLoc) {
+    fn delete_cell (&mut self, loc: CellLoc) -> bool {
         // deletes the selected cell
         // do nothing if there is no cell there
+        // returns a bool indicating whether a cell was deleted or not
         let mut found_cell = false;
         let mut rm_idx: usize = 0;
         let col_idx = Sheet::col_to_index(&loc.col);
@@ -181,11 +332,14 @@ impl Sheet {
             eprintln!("did not find a cell at loc: {:?}", loc);
             eprintln!("nothing to delete")
         }
+        found_cell
     }
 
-    fn shrink (&mut self) {
+    fn shrink (&mut self) -> bool {
         // figure out how many columns at the end of cols 
         // are empty and can be removed
+        // returns a bool indicating if any changes were made
+        let mut modified = false;
         let mut trim_cols: usize = 0;
         for col in self.cols.iter().rev() {
             if col.is_empty() {
@@ -197,6 +351,7 @@ impl Sheet {
             let _ = self.cols.pop();
             trim_cols -= 1;
             self.n_cols -= 1;
+            modified = true;
         }
         // set self.n_rows to whatever the maximum row is 
         let mut max_row: usize = 0;
@@ -205,63 +360,19 @@ impl Sheet {
                 max_row = cmp::max(cell.loc.row, max_row);
             }
         }
+        if self.n_rows > max_row {
+            modified = true;
+        }
         eprintln!("shrinking rows from {} to {}", self.n_rows, max_row);
         self.n_rows = max_row;
+        modified
     }
 }
 
 
-fn parse_loc (loc_arg: &String) -> CellLoc {
-    let mut buf_col = String::new();
-    let mut buf_row = String::new();
-    let mut number_flag = false;
-    let mut letter_flag = false;
-    for c in loc_arg.chars() {
-        if c.is_alphabetic() {
-            letter_flag = true;
-            buf_col.push(c.to_ascii_uppercase());  // convert to uppercase letter if not already
-            // simple check to make sure the location is in a usable form
-            // just make sure that is is composed of letters then numbers
-            if number_flag {
-                eprintln!("bad cell location: {}", loc_arg);
-                process::exit(1);
-            }
-        }
-        else if c.is_numeric() {
-            // another simple check to make sure there were actually letters first
-            if !letter_flag {
-                eprintln!("bad cell location: {}", loc_arg);
-                process::exit(1);
-            }
-            number_flag = true;
-            buf_row.push(c);
-        }
-    }
-    // another simple check to make sure there were numbers
-    if !number_flag {
-        eprintln!("bad cell location: {}", loc_arg);
-        process::exit(1);
-    }
-    CellLoc {
-        col: buf_col,
-        row: buf_row.parse::<usize>().unwrap(),
-    }
-}
-
-
-fn parse_val (val_arg: &String) -> CellVal {
-    match val_arg.parse::<i32>() {  // try parse as int first
-        Ok(val) => CellVal::Int(val),
-        _ => match val_arg.parse::<f64>() {  // try parse as real next
-            Ok(val) => CellVal::Real(val),
-            _ => CellVal::Text(val_arg.clone())  // otherwise parse as text
-        }
-    }
-}
-
-
-fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sheet) {
+fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sheet) -> bool {
     let n_other_args = other_args.len();
+    let mut modified = false;
     match subcommand.as_str() {
         "read_sheet" => {
             eprintln!("subcommand: {}", subcommand);
@@ -278,6 +389,7 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
             let val = parse_val(&other_args[1]);
             eprintln!("parsed cell value: {:?}", val);
             sheet.write_cell(loc, val);
+            modified = true;
         },
         "read_cell" => {
             if n_other_args != 1 {
@@ -297,7 +409,7 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
             eprintln!("subcommand: {}", subcommand);
             let loc = parse_loc(&other_args[0]);
             eprintln!("parsed cell location: {:?}", loc);
-            sheet.delete_cell(loc);
+            modified = sheet.delete_cell(loc);
         },
         "count_rows" => {
             eprintln!("subcommand: {}", subcommand);
@@ -314,6 +426,7 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
             eprintln!("rows before: {}", sheet.n_rows);
             sheet.add_row();
             eprintln!("rows after: {}", sheet.n_rows);
+            modified = true;
         },
         "add_col" => {
             eprintln!("subcommand: {}", subcommand);
@@ -321,38 +434,27 @@ fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sh
             eprintln!("cols before: {}", sheet.n_cols);
             sheet.add_col();
             eprintln!("cols after: {}", sheet.n_cols);
+            modified = true;
         },
         "shrink" => {
             eprintln!("subcommand: {}", subcommand);
-            sheet.shrink();
+            modified = sheet.shrink();
         },
         _ => {
             eprintln!("unrecognized subcommand: {}", subcommand);
             process::exit(1);
         },
     }
+    modified
 }
 
 
 fn main () {
-
     // init the sheet
     let mut sheet = Sheet::new();
 
     // load sheet state from file
-    //sheet.load_sheet();
-
-    // add some values to the sheet
-    sheet.write_cell(CellLoc { col: String::from("A"), row: (1) }, CellVal::Int(1));
-    sheet.write_cell(CellLoc { col: String::from("A"), row: (3) }, CellVal::Int(3));
-    sheet.write_cell(CellLoc { col: String::from("A"), row: (5) }, CellVal::Int(5));
-    sheet.write_cell(CellLoc { col: String::from("B"), row: (1) }, CellVal::Int(1));
-    sheet.write_cell(CellLoc { col: String::from("B"), row: (3) }, CellVal::Int(3));
-    sheet.write_cell(CellLoc { col: String::from("B"), row: (5) }, CellVal::Int(5));
-    sheet.write_cell(CellLoc { col: String::from("C"), row: (3) }, CellVal::Real(3.));
-    sheet.write_cell(CellLoc { col: String::from("C"), row: (6) }, CellVal::Real(6.));
-    sheet.write_cell(CellLoc { col: String::from("C"), row: (9) }, CellVal::Real(9.));
-    sheet.write_cell(CellLoc { col: String::from("B"), row: (4) }, CellVal::Text(String::from("four")));
+    sheet.load_sheet();
 
     // parse arguments
     let args: Vec<String> = env::args().collect();
@@ -362,6 +464,10 @@ fn main () {
     }
     let subcommand = &args[1];
     let other_args = &args[2..];
-    handle_subcommand(subcommand, other_args, &mut sheet);
+    let modified = handle_subcommand(subcommand, other_args, &mut sheet);
 
+    // save sheet state to file (only if it has been modified)
+    if modified {
+        sheet.save_sheet();
+    }
 }
