@@ -17,37 +17,26 @@ Try to learn rust by writing a basic spreadsheet engine: `rustsheet`
 	-  call signature something like `rustsheet <subcommand> args ...`
 	- `<subcommand>` could be one of a few options
 		- `read_cell <loc>` - print the value of a cell at `<loc>` to stdout
-		- `write_cell <loc> <value>` -  write `<value>` into a cell at `<loc>`
-		- `count_rows`
-		- `count_cols`
-		- `add_row` - add a new row to the sheet (just increases the `n_rows` attribute of `Sheet`)
-		- `add_col` - a new column to the sheet
-		- `shrink` - reduce the number of rows and columns in the sheet to the minimum amount necessary to hold all non-null cells
-		- `delete_cell <loc>` - delete the cell (if any) at `loc`
+		- `write_cell <loc> <value>` -  write `<value>` into a cell at `<loc>`, prints updated sheet to stdout
+		- `read_sheet` - print the entire contents of the sheet to stdout, first line is "<n_cols>, <n_rows>" then each line after that is "<loc> <value>" for all non-null cells ordered by column, row
+		- `count_rows` - print the number of rows in the sheet to stdout
+		- `count_cols` - print the number of columns in the sheet to stdout
+		- `add_row` - add a new row to the sheet (just increases the `n_rows` attribute of `Sheet`), prints new number of rows to stdout
+		- `add_col` - a new column to the sheet, prints new number of columns to stdout
+		- `shrink` - reduce the number of rows and columns in the sheet to the minimum amount necessary to hold all non-null cells, prints new dimensions as "<n_cols> <n_rows>" to stdout
+		- `delete_cell <loc>` - delete the cell (if any) at `loc`, prints the updated sheet to stdout
 	- subcommands that return information (_e.g._ `read_cell`, `count_rows`) just print the result to stdout, others (_e.g._ `write_cell`, `add_row`) just modify the sheet state (in `sheet.json`)
 	- indexing (`<loc>`) is in typical `<upper_letter><number>` format where the letter portion denotes the column (A, B, C, ...) and the number denotes the row (1, 2, 3, ...)
 - _BONUS_: write up a simple Python/tkinter GUI app for viewing/interacting with the spreadsheet engine (via CLI on the backend)
 
 ## sheet state
-sheet state stored in `sheet.json` with the following layout
-```json
-{
-	// store current extent of sheet
-	// some columns/rows may be full of null cells
-	"n_cols": 4,
-	"n_rows": 20,
-	// store non-null cell data
-	// key: location
-	// value: cell value (type inferred from value)
-	// ordered by column, row (A1, A2, A3, B1, B2, ...)
-	"cells": {
-		"A1": 123,
-		"B2": 1.23,
-		"C3": "one two three",
-		// ...
-		//
-		// all cell locations within defined range without an explicit
-		// value are implicitly considered null
-	},
-}
+~~sheet state stored in `sheet.json` with the following layout`~~
+
+Instead of using json just use a simpler text format (in `sheet.txt`) for now with the following layout
 ```
+<n_cols> <n_rows>
+<cell_loc> <cell_val>
+<cell_loc> <cell_val>
+... ...
+```
+This is the same formatting as what is printed to stdout when the `read_sheet` subcommand is used. 

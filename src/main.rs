@@ -52,6 +52,10 @@ impl Sheet {
         sheet
     }
 
+    fn load_sheet (&mut self) {
+        eprintln!("not implemented yet");
+    }
+
     fn col_to_index (col: &String) -> usize {
         let mut idx: usize = 0;
         let base: usize = 26;
@@ -118,6 +122,16 @@ impl Sheet {
         }
     }
 
+    fn read_sheet (&self) {
+        // first print <n_cols> <n_rows>
+        println!("{} {}", self.n_cols, self.n_rows);
+        for col in &self.cols {
+            for cell in col {
+                println!("{}{} {:?}", cell.loc.col, cell.loc.row, cell.val);
+            }
+        }
+    }
+
     fn read_cell (&self, loc: CellLoc) {
         // prints the value of the selected cell to stdout
         // prints nothing if there is no cell there
@@ -168,7 +182,6 @@ impl Sheet {
             eprintln!("nothing to delete")
         }
     }
-
 
     fn shrink (&mut self) {
         // figure out how many columns at the end of cols 
@@ -250,6 +263,10 @@ fn parse_val (val_arg: &String) -> CellVal {
 fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut Sheet) {
     let n_other_args = other_args.len();
     match subcommand.as_str() {
+        "read_sheet" => {
+            eprintln!("subcommand: {}", subcommand);
+            sheet.read_sheet();
+        },
         "write_cell" => {
             if n_other_args != 2 {
                 eprintln!("write_cell subcommand takes 2 args: <loc> <value>");
@@ -322,6 +339,9 @@ fn main () {
     // init the sheet
     let mut sheet = Sheet::new();
 
+    // load sheet state from file
+    //sheet.load_sheet();
+
     // add some values to the sheet
     sheet.write_cell(CellLoc { col: String::from("A"), row: (1) }, CellVal::Int(1));
     sheet.write_cell(CellLoc { col: String::from("A"), row: (3) }, CellVal::Int(3));
@@ -333,15 +353,6 @@ fn main () {
     sheet.write_cell(CellLoc { col: String::from("C"), row: (6) }, CellVal::Real(6.));
     sheet.write_cell(CellLoc { col: String::from("C"), row: (9) }, CellVal::Real(9.));
     sheet.write_cell(CellLoc { col: String::from("B"), row: (4) }, CellVal::Text(String::from("four")));
-    //eprintln!("sheet: {:?}", sheet);
-
-    eprintln!("----------");
-    eprintln!("cols: {} rows: {}", sheet.n_cols, sheet.n_rows);
-    sheet.delete_cell(CellLoc { col: String::from("C"), row: (9) });
-    eprintln!("cols: {} rows: {}", sheet.n_cols, sheet.n_rows);
-    sheet.shrink();
-    eprintln!("cols: {} rows: {}", sheet.n_cols, sheet.n_rows);
-    eprintln!("----------");
 
     // parse arguments
     let args: Vec<String> = env::args().collect();
@@ -352,6 +363,5 @@ fn main () {
     let subcommand = &args[1];
     let other_args = &args[2..];
     handle_subcommand(subcommand, other_args, &mut sheet);
-    
-    //eprintln!("sheet: {:?}", sheet);
+
 }
