@@ -2,6 +2,7 @@
 
 
 use std::env;
+use std::io::Write;
 use std::process;
 use std::mem;
 use std::cmp;
@@ -203,7 +204,17 @@ impl Sheet {
     }
 
     fn save_sheet (&self) {
-        eprintln!("save sheet not implemented yet");
+        eprintln!("saving sheet");
+        let file = fs::File::create("./sheet.txt").unwrap();
+        let mut buf = io::BufWriter::new(file);
+        // first print <n_cols> <n_rows>s
+        let _ = buf.write_fmt(format_args!("{} {}\n", self.n_cols, self.n_rows)).unwrap();
+        for col in &self.cols {
+            for cell in col {
+                let _ = buf.write_fmt(format_args!("{}{} {:?}\n", cell.loc.col, cell.loc.row, cell.val)).unwrap();
+            }
+        }
+        let _ = buf.flush().unwrap();
     }
 
     fn col_to_index (col: &String) -> usize {
@@ -468,6 +479,8 @@ fn main () {
 
     // save sheet state to file (only if it has been modified)
     if modified {
+        eprintln!("sheet modified");
+        sheet.read_sheet();
         sheet.save_sheet();
     }
 }

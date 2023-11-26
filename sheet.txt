@@ -1,11 +1,4 @@
-3 9
-A1 Int(1)
-A3 Int(3)
-A5 Int(5)
-B1 Int(1)
-B3 Int(3)
-B4 Text("four")
-B5 Int(5)
-C3 Real(3.0)
-C6 Real(6.0)
-C9 Real(9.0)
+2 3
+A1 Int(90)
+B2 Text("ABCD")
+B3 Text("four")
