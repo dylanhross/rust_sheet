@@ -150,21 +150,66 @@ class GUI:
 
     def _clr_btn_cb(self):
         """ callback for the Clear Sheet button """
-        self._txt_writeln('GUI', 'hit the clear button')
+        self._txt_writeln('GUI', 'hit the clear sheet button')
 
     def _setup_mid_frm(self):
         # mid frame layout
-        self.mid_frm = ttk.Frame(self.main_frm, padding=(5, 5, 5, 5))
+        self.mid_frm_rows = 20
+        self.mid_frm_cols = 4
+        self.mid_frm = Frame(self.main_frm, borderwidth=3, relief=RIDGE, padx=10, pady=10)
         self.mid_frm.grid(row=1, column=0, sticky=(N, S, E, W))
-        self.mid_frm.rowconfigure(0, weight=1)
-        self.mid_frm.columnconfigure(0, weight=1)
+        self.mid_frm.rowconfigure(0, weight=0)
+        for i in range(self.mid_frm_rows):
+            self.mid_frm.rowconfigure(i + 1, weight=1)
+        self.mid_frm.rowconfigure(self.mid_frm_rows + 2, weight=0)
+        self.mid_frm.columnconfigure(0, weight=0, minsize=10)
+        for i in range(self.mid_frm_cols):
+            self.mid_frm.columnconfigure(i + 1, weight=1)
+        self.mid_frm.columnconfigure(self.mid_frm_cols + 2, weight=0, minsize=10)
         # mid frame widgets
-        # canvas
-        self._setup_cnvs()
+        self._setup_cell_txts()
+        self._setup_addcol_btn()
+        self._setup_addrow_btn()
+        self._setup_shrink_btn()
 
-    def _setup_cnvs(self):
-        self.cnvs = Canvas(self.mid_frm, relief=SUNKEN, borderwidth=2, highlightthickness=0)
-        self.cnvs.grid(sticky=(N, S, E, W))
+    def _setup_cell_txts(self):
+        self.cell_txts = []
+        self.col_labs = []
+        self.row_labs = []
+        for col in range(self.mid_frm_cols):
+            self.col_labs.append(Label(self.mid_frm, text='{}'.format(col + 1), anchor=CENTER))
+            self.col_labs[col].grid(row=0, column=col + 1, sticky=(E, W, S))
+            self.cell_txts.append([])
+            for row in range(self.mid_frm_rows):
+                self.cell_txts[col].append(Label(self.mid_frm, borderwidth=2, anchor=CENTER, relief=RAISED))
+                self.cell_txts[col][row].grid(row=row + 1, column=col + 1, sticky=(N, S, E, W))
+        for row in range(self.mid_frm_rows):
+            self.row_labs.append(Label(self.mid_frm, text='{}'.format(row + 1), anchor=CENTER))
+            self.row_labs[row].grid(row=row + 1, column=0, sticky=(E,))
+
+    def _setup_addcol_btn(self):
+        self.addcol_btn = ttk.Button(self.mid_frm, text='Add Column', command=self._addcol_btn_cb)
+        self.addcol_btn.grid(row=0, column=self.mid_frm_cols + 2, sticky=(E,))
+
+    def _addcol_btn_cb(self):
+        """ callback for the add column button """
+        self._txt_writeln('GUI', 'hit the add column button')
+
+    def _setup_addrow_btn(self):
+        self.addrow_btn = ttk.Button(self.mid_frm, text='Add Row', command=self._addrow_btn_cb)
+        self.addrow_btn.grid(row=self.mid_frm_rows + 2, column=0, sticky=(W, E))
+
+    def _addrow_btn_cb(self):
+        """ callback for the add row button """
+        self._txt_writeln('GUI', 'hit the add row button')
+
+    def _setup_shrink_btn(self):
+        self.shrink_btn = ttk.Button(self.mid_frm, text='Shrink', command=self._shrink_btn_cb)
+        self.shrink_btn.grid(row=self.mid_frm_rows + 2, column=self.mid_frm_cols + 2, sticky=(W,))
+
+    def _shrink_btn_cb(self):
+        """ callback for the add column button """
+        self._txt_writeln('GUI', 'hit the shrink button')
 
     def _setup_lower_frm(self):
         # lower frame layout
