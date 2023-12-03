@@ -1,2 +1,8 @@
-4 5
+8 11
 A1 Real(1.0)
+B2 Text("Abitoftext")
+B3 Int(56)
+C5 Real(4.565)
+D6 Text("")
+E5 Int(1)
+E6 Real(45.6)

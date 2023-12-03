@@ -53,7 +53,12 @@ class Backend:
         idx = 0
         for i, c in enumerate(col[::-1].encode()):
             idx += 26**i * (c - 64)
-        return idx
+        return idx - 1
+    
+    def idx_to_col(self, idx):
+        # This will get bad after a while lol
+        # need to figure out the logic to go back to column names
+        return "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[idx]
 
     def _parse_loc(self, loc):
         """ returns (column, row) both as indices into self.sheet """
@@ -93,7 +98,38 @@ class Backend:
         loads the sheet state via the read_sheet subcommand
         """
         self._update_sheet(self._run('read_sheet'))
-        
+
+    def clear_sheet(self):
+        """
+        clear the sheet
+        """
+        self._update_sheet(self._run('clear_sheet'))
+
+    def add_col(self):
+        """
+        add a column to the sheet
+        """
+        self._update_sheet(self._run('add_col'))
+
+    def add_row(self):
+        """
+        add a row to the sheet
+        """
+        self._update_sheet(self._run('add_row'))
+
+    def shrink(self):
+        """
+        shrink the spreadsheet to minimal dimensions to contain all non-null cells
+        """
+        self._update_sheet(self._run('shrink'))
+
+    def write_cell(self, col, row, val):
+        """
+        write a value into the cell
+        """
+        loc = "{}{}".format(self.idx_to_col(col), row + 1)
+        self._update_sheet(self._run('write_cell', other_args=[loc, val]))
+
 
 class GUI:
     """
@@ -105,13 +141,13 @@ class GUI:
         self._setup_win()
         self._setup_main_frm()
         self._setup_upper_frm()
-        self._setup_mid_frm()
+        #self._setup_mid_frm()
         self._setup_lower_frm()
         # init the backend 
         self._backend = Backend(self._txt_writeln)
         self._backend.read_sheet()
-        # draw the sheet
-        self._draw_sheet()
+        # draw the cells
+        self._setup_mid_frm()
         # start up the window main loop
         self.win.mainloop()
 
@@ -119,7 +155,7 @@ class GUI:
         # init window
         self.win = Tk()
         self.win.title('rust sheet')
-        self.win.minsize(600, 600)
+        self.win.minsize(600, 300)
         # set up window layout cols and rows
         self.win.rowconfigure(0, weight=1)
         self.win.columnconfigure(0, weight=1)
@@ -151,21 +187,21 @@ class GUI:
     def _clr_btn_cb(self):
         """ callback for the Clear Sheet button """
         self._txt_writeln('GUI', 'hit the clear sheet button')
+        self._backend.clear_sheet()
+        self._draw_sheet()
 
     def _setup_mid_frm(self):
         # mid frame layout
-        self.mid_frm_rows = 20
-        self.mid_frm_cols = 4
-        self.mid_frm = Frame(self.main_frm, borderwidth=3, relief=RIDGE, padx=10, pady=10)
+        self.mid_frm = Frame(self.main_frm, borderwidth=2, relief=SUNKEN, padx=10, pady=10)
         self.mid_frm.grid(row=1, column=0, sticky=(N, S, E, W))
         self.mid_frm.rowconfigure(0, weight=0)
-        for i in range(self.mid_frm_rows):
+        for i in range(self._backend.n_rows):
             self.mid_frm.rowconfigure(i + 1, weight=1)
-        self.mid_frm.rowconfigure(self.mid_frm_rows + 2, weight=0)
+        self.mid_frm.rowconfigure(self._backend.n_rows + 2, weight=0)
         self.mid_frm.columnconfigure(0, weight=0, minsize=10)
-        for i in range(self.mid_frm_cols):
+        for i in range(self._backend.n_cols):
             self.mid_frm.columnconfigure(i + 1, weight=1)
-        self.mid_frm.columnconfigure(self.mid_frm_cols + 2, weight=0, minsize=10)
+        self.mid_frm.columnconfigure(self._backend.n_cols + 2, weight=0, minsize=10)
         # mid frame widgets
         self._setup_cell_txts()
         self._setup_addcol_btn()
@@ -176,40 +212,101 @@ class GUI:
         self.cell_txts = []
         self.col_labs = []
         self.row_labs = []
-        for col in range(self.mid_frm_cols):
-            self.col_labs.append(Label(self.mid_frm, text='{}'.format(col + 1), anchor=CENTER))
+        for col in range(self._backend.n_cols):
+            self.col_labs.append(Label(self.mid_frm, text='{}'.format(self._backend.idx_to_col(col)), anchor=CENTER))
             self.col_labs[col].grid(row=0, column=col + 1, sticky=(E, W, S))
             self.cell_txts.append([])
-            for row in range(self.mid_frm_rows):
-                self.cell_txts[col].append(Label(self.mid_frm, borderwidth=2, anchor=CENTER, relief=RAISED))
+            for row in range(self._backend.n_rows):
+                self.cell_txts[col].append(Text(self.mid_frm, borderwidth=2, height=1, width=10, relief=SUNKEN))
                 self.cell_txts[col][row].grid(row=row + 1, column=col + 1, sticky=(N, S, E, W))
-        for row in range(self.mid_frm_rows):
+                def update_handler(event, self=self, col=col, row=row):
+                    return self._check_update_cell(event, col, row)
+                self.cell_txts[col][row].bind('<FocusOut>', update_handler)
+                cell = self._backend.sheet[col][row]
+                if cell is not None:
+                    self.cell_txts[col][row].insert(INSERT, cell["v"])
+        for row in range(self._backend.n_rows):
             self.row_labs.append(Label(self.mid_frm, text='{}'.format(row + 1), anchor=CENTER))
             self.row_labs[row].grid(row=row + 1, column=0, sticky=(E,))
+        # set up all of the navigation binds
+        self._setup_nav_binds()
+
+    def _setup_nav_binds(self):
+        for col in range(self._backend.n_cols):
+            for row in range(self._backend.n_rows):
+                # bind arrow keys for navigation around the sheet
+                # UP
+                def kp_up_handler(event, col=col, row=row):
+                    if row > 0:
+                        self.cell_txts[col][row - 1].focus_set()
+                self.cell_txts[col][row].bind('<KeyPress-Up>', kp_up_handler)
+                # DOWN 
+                def kp_down_handler(event, col=col, row=row):
+                    if row < self._backend.n_rows - 1:
+                        self.cell_txts[col][row + 1].focus_set()
+                self.cell_txts[col][row].bind('<KeyPress-Down>', kp_down_handler)
+                # LEFT
+                def kp_left_handler(event, col=col, row=row):
+                    if col > 0:
+                        self.cell_txts[col - 1][row].focus_set()
+                self.cell_txts[col][row].bind('<KeyPress-Left>', kp_left_handler)
+                # RIGHT
+                def kp_right_handler(event, col=col, row=row):
+                    if col < self._backend.n_cols - 1:
+                        self.cell_txts[col + 1][row].focus_set()
+                self.cell_txts[col][row].bind('<KeyPress-Right>', kp_right_handler)
+
+    def _check_update_cell(self, event, col, row):
+        """ check the contents of a cell an update the sheet if its contents have changed """
+        self._txt_writeln("GUI", "checking cell {}{}".format(self._backend.idx_to_col(col), row + 1))
+        if self.cell_txts[col][row].edit_modified():
+            current_val = self.cell_txts[col][row].get('1.0', END).strip()
+            bkend_val = self._backend.sheet[col][row]
+            if bkend_val is None:
+                if current_val != "":
+                    # update the cell on the backend
+                    self._update_cell_bkend(col, row, current_val)
+            else:
+                if current_val != str(bkend_val["v"]):
+                    # update cell on the backend
+                    self._update_cell_bkend(col, row, current_val)
+            # update the cell (trimming any unnecessary whitespace)
+            self.cell_txts[col][row].delete('1.0', END)
+            self.cell_txts[col][row].insert(INSERT, current_val)
+
+    def _update_cell_bkend(self, col, row, current_val):
+        self._txt_writeln("GUI", "updating cell ({}, {})".format(col, row))
+        self._backend.write_cell(col, row, current_val)
 
     def _setup_addcol_btn(self):
         self.addcol_btn = ttk.Button(self.mid_frm, text='Add Column', command=self._addcol_btn_cb)
-        self.addcol_btn.grid(row=0, column=self.mid_frm_cols + 2, sticky=(E,))
+        self.addcol_btn.grid(row=0, column=self._backend.n_cols + 2, sticky=(E,))
 
     def _addcol_btn_cb(self):
         """ callback for the add column button """
         self._txt_writeln('GUI', 'hit the add column button')
+        self._backend.add_col()
+        self._draw_sheet()
 
     def _setup_addrow_btn(self):
         self.addrow_btn = ttk.Button(self.mid_frm, text='Add Row', command=self._addrow_btn_cb)
-        self.addrow_btn.grid(row=self.mid_frm_rows + 2, column=0, sticky=(W, E))
+        self.addrow_btn.grid(row=self._backend.n_rows + 2, column=0, sticky=(W, E))
 
     def _addrow_btn_cb(self):
         """ callback for the add row button """
         self._txt_writeln('GUI', 'hit the add row button')
+        self._backend.add_row()
+        self._draw_sheet()
 
     def _setup_shrink_btn(self):
         self.shrink_btn = ttk.Button(self.mid_frm, text='Shrink', command=self._shrink_btn_cb)
-        self.shrink_btn.grid(row=self.mid_frm_rows + 2, column=self.mid_frm_cols + 2, sticky=(W,))
+        self.shrink_btn.grid(row=self._backend.n_rows + 2, column=self._backend.n_cols + 2, sticky=(W,))
 
     def _shrink_btn_cb(self):
         """ callback for the add column button """
         self._txt_writeln('GUI', 'hit the shrink button')
+        self._backend.shrink()
+        self._draw_sheet()
 
     def _setup_lower_frm(self):
         # lower frame layout
@@ -239,7 +336,11 @@ class GUI:
         self.txt['state'] = DISABLED
 
     def _draw_sheet(self):
-        """ draw sheet (stored in the backend) into the canvas """
+        """ 
+        draw sheet (stored in the backend) into the canvas
+        actually just an alias for the _setup_mid_frm method 
+        """
+        self._setup_mid_frm()
 
 
 def main():
