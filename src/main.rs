@@ -16,6 +16,7 @@ enum CellVal {
     Int(i32),
     Real(f64),
     Text(String),
+    Formula(String),
 }
 
 
@@ -24,7 +25,18 @@ fn parse_val (val_arg: &String) -> CellVal {
         Ok(val) => CellVal::Int(val),
         _ => match val_arg.parse::<f64>() {  // try parse as real next
             Ok(val) => CellVal::Real(val),
-            _ => CellVal::Text(val_arg.clone())  // otherwise parse as text
+            _ => {
+                match val_arg.chars().nth(0) {
+                    Some(c) => {
+                        if c == '=' {
+                            CellVal::Formula(val_arg.clone())  // formula
+                        } else {
+                            CellVal::Text(val_arg.clone())  // otherwise parse as text
+                        }
+                    }
+                    _ => CellVal::Text(val_arg.clone())  // otherwise parse as text
+                }
+            } 
         }
     }
 }
@@ -286,6 +298,8 @@ impl Sheet {
     fn read_sheet (&self) {
         // first print <n_cols> <n_rows>
         println!("{} {}", self.n_cols, self.n_rows);
+        // then print all cell values
+        // formulas are evaluated at this point?
         for col in &self.cols {
             for cell in col {
                 println!("{}{} {:?}", cell.loc.col, cell.loc.row, cell.val);
@@ -499,3 +513,59 @@ fn main () {
         sheet.save_sheet();
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_val_int () {
+        let cv = parse_val(&String::from("1"));
+        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as Int");
+        // would need to modify parser to handle stripping whitespace for
+        // the rest of these test cases to work
+        /*let cv = parse_val(&String::from("1 "));
+        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as Int");
+        let cv = parse_val(&String::from(" 1"));
+        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as Int");
+        let cv = parse_val(&String::from(" 1 "));
+        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as Int");*/
+    }
+
+    #[test]
+    fn parse_val_real () {
+        let cv = parse_val(&String::from("1."));
+        assert!(matches!(cv, CellVal::Real(_)), "failed to parse cell value as Real");
+        let cv = parse_val(&String::from("1.234"));
+        assert!(matches!(cv, CellVal::Real(_)), "failed to parse cell value as Real");
+        // would need to modify parser to handle stripping whitespace for
+        // the rest of these test cases to work
+        /*let cv = parse_val(&String::from("1.234 "));
+        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as int");
+        let cv = parse_val(&String::from(" 1.234"));
+        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as int");
+        let cv = parse_val(&String::from(" 1.234 "));
+        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as int");*/
+    }
+
+    #[test]
+    fn parse_val_text () {
+        let cv = parse_val(&String::from("abc"));
+        assert!(matches!(cv, CellVal::Text(_)), "failed to parse cell value as Text");
+    }
+
+    #[test]
+    fn parse_val_formula () {
+        let cv = parse_val(&String::from("=C3+C5*2"));
+        assert!(matches!(cv, CellVal::Formula(_)), "failed to parse cell value as Formula");
+    }
+
+    #[test]
+    fn parse_loc_ () {
+        // TODO
+        assert!(true);
+    }
+}
+
+
