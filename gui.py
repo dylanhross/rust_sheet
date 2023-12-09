@@ -291,20 +291,20 @@ class GUI:
     def _check_update_cell(self, event, col, row):
         """ check the contents of a cell an update the sheet if its contents have changed """
         self._txt_writeln("GUI", "checking cell {}{}".format(self._backend.idx_to_col(col), row + 1))
-        if self.cell_txts[col][row].edit_modified():
+        # if the cell was modified or the cell type is Formula, redraw the whole sheet
+        if self.cell_txts[col][row].edit_modified() or (self._backend.sheet[col][row] is not None and self._backend.sheet[col][row]["t"]) == "Formula":
             current_val = self.cell_txts[col][row].get('1.0', END).strip()
             bkend_val = self._backend.sheet[col][row]
             if bkend_val is None:
                 if current_val != "":
                     # update the cell on the backend
                     self._update_cell_bkend(col, row, current_val)
-            else:
-                if current_val != str(bkend_val["v"]):
-                    # update cell on the backend
-                    self._update_cell_bkend(col, row, current_val)
-            # update the cell (trimming any unnecessary whitespace)
-            self.cell_txts[col][row].delete('1.0', END)
-            self.cell_txts[col][row].insert(INSERT, current_val)
+            elif current_val != str(bkend_val["v"]):
+                # update cell on the backend
+                self._update_cell_bkend(col, row, current_val)
+            # re-draw the sheet
+            self._draw_sheet()
+            # put the focus back onto the new cell?
 
     def _update_cell_bkend(self, col, row, current_val):
         self._txt_writeln("GUI", "updating cell ({}, {})".format(col, row))
