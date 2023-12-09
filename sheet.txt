@@ -1,5 +1,6 @@
 8 11
 A1 Real(1.0)
+A2 Formula("=1+2")
 B2 Text("Abitoftext")
 B3 Int(56)
 C5 Real(4.565)

@@ -166,10 +166,22 @@ impl Sheet {
         // first print <n_cols> <n_rows>
         println!("{} {}", self.n_cols, self.n_rows);
         // then print all cell values
-        // formulas are evaluated at this point?
+        // formulas are evaluated at this point and evaluated values
+        // are printed
         for col in &self.cols {
             for cell in col {
-                println!("{}{} {:?}", cell.loc.col, cell.loc.row, cell.val);
+                // print value of Int, Real, and Text cells to stdout
+                // evaluate and print result of Formula cells
+                match cell.val {
+                    dtypes::CellVal::Formula(_) => {
+                        eprintln!("IDK how to print out a Formula cell yet");
+                        let temp_disp_val = String::from("Text(\"#ERR\")");
+                        println!("{}{} {}", cell.loc.col, cell.loc.row, &temp_disp_val);
+                    }
+                    _ => {
+                        println!("{}{} {:?}", cell.loc.col, cell.loc.row, cell.val);
+                    }
+                }
             }
         }
     }
@@ -177,6 +189,8 @@ impl Sheet {
     pub fn read_cell (&self, loc: dtypes::CellLoc) {
         // prints the value of the selected cell to stdout
         // prints nothing if there is no cell there
+        // Importantly, for formulas this is the the raw value (i.e. the formula
+        // definition) instead of the evaluated value that is printed by read_sheet
         let mut found_cell = false;
         let col_idx = Sheet::col_to_index(&loc.col);
         if col_idx < self.n_cols {

@@ -130,6 +130,20 @@ class Backend:
         loc = "{}{}".format(self.idx_to_col(col), row + 1)
         self._update_sheet(self._run('write_cell', other_args=[loc, val]))
 
+    def read_cell(self, col, row):
+        """
+        read a value from the specified cell
+        returns the parsed value {'t': ..., 'v': ...}
+
+        note: this is a raw value meaning that for Formula cells this is 
+        the formula definition instead of the evaluated form that is printed
+        from read_sheet
+        """
+        loc = "{}{}".format(self.idx_to_col(col), row + 1)
+        result = self._run('read_cell', other_args=[loc])
+        result = None if len(result) < 1 else self._parse_val(result[0])
+        return result
+
 
 class GUI:
     """
@@ -219,6 +233,11 @@ class GUI:
             for row in range(self._backend.n_rows):
                 self.cell_txts[col].append(Text(self.mid_frm, borderwidth=2, height=1, width=10, relief=SUNKEN))
                 self.cell_txts[col][row].grid(row=row + 1, column=col + 1, sticky=(N, S, E, W))
+                # display raw cell value when the cell gains focus
+                def raw_val_handler(event, self=self, col=col, row=row):
+                    return self._display_cell_raw_value(event, col, row)
+                self.cell_txts[col][row].bind('<FocusIn>', raw_val_handler)
+                # update the cell (if necessary) when the cell loses focus
                 def update_handler(event, self=self, col=col, row=row):
                     return self._check_update_cell(event, col, row)
                 self.cell_txts[col][row].bind('<FocusOut>', update_handler)
@@ -255,6 +274,19 @@ class GUI:
                     if col < self._backend.n_cols - 1:
                         self.cell_txts[col + 1][row].focus_set()
                 self.cell_txts[col][row].bind('<KeyPress-Right>', kp_right_handler)
+
+    def _display_cell_raw_value(self, event, col, row):
+        """ 
+        when a cell gains focus use read_cell backend method to get the raw
+        cell value (normally the same as evaluated value but for Formula cells
+        they are different) and display that instead 
+        """
+        self._txt_writeln("GUI", "focused cell ({}, {})".format(col, row))
+        display_value = self._backend.read_cell(col, row)
+        if display_value is not None:
+            # update the cell (trimming any unnecessary whitespace)
+            self.cell_txts[col][row].delete('1.0', END)
+            self.cell_txts[col][row].insert(INSERT, display_value["v"])
 
     def _check_update_cell(self, event, col, row):
         """ check the contents of a cell an update the sheet if its contents have changed """
