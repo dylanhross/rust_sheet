@@ -5,7 +5,7 @@
 
 use std::process;
 
-use crate::dtypes;
+use crate::dtypes::{self, FormToken};
 
 
 pub fn parse_loc (loc_arg: &String) -> dtypes::CellLoc {
@@ -125,19 +125,59 @@ pub fn parse_line (line: &String) -> (dtypes::CellLoc, dtypes::CellVal) {
 }
 
 
+fn buf_to_loc_or_num_token (buf: &String, alpha_flag: bool) -> FormToken {
+    // take a buffer with either a loc or num and return the corresponding FormToken
+    if alpha_flag {
+        // its a loc
+        dtypes::FormToken::Loc(parse_loc(&buf))
+    } else {
+        // its a num
+        let num: f64;
+        match buf.parse::<i32>() {
+            Ok(val) => num = val as f64,
+            _ => num = buf.parse::<f64>().unwrap(),
+        };
+        dtypes::FormToken::Num(num)
+    }
+}
 
 
-pub fn parse_formula (_val: &String) -> () {
-    // ?
-    //let mut buf_loc = String::new();
-    //let mut buf_val = String::new();
-    //let mut space_flag = false;
-    //let mut paren_flag = false;
-    //for c in line.chars() {
+fn tokenize_expr (expr: &String) -> Vec<FormToken> {
+    // create a vector of tokens in the order they were parsed from an expression
+    let mut buf = String::new();
+    let mut tokens: Vec<FormToken> = Vec::new();
+    let mut alpha_flag = false;
+    for c in expr.chars() {
+        if c == '+' || c == '-' {
+            if buf.len() > 0 {
+                // if there is anything in the buffer, make a token from it 
+                // and push it before pushing the operator
+                tokens.push(buf_to_loc_or_num_token(&buf, alpha_flag));
+                buf.clear();
+                alpha_flag = false;
+            }
+            tokens.push(dtypes::FormToken::Op(c.to_string()));
+        } else if c != '=' {
+            if c.is_alphabetic() {
+                alpha_flag = true;
+            }
+            buf.push(c);
+        }
+    }
+    // add whatever is in the buffer to tokens
+    tokens.push(buf_to_loc_or_num_token(&buf, alpha_flag));
+    // return the vector of tokens
+    tokens
+}
 
+
+pub fn parse_formula_expr (expr: &String) -> dtypes::FormToken {
+    let tokens = tokenize_expr(expr);
+    println!("tokens: {:?}", tokens);
     // make sure that any references to cell locations
     // evaluate to numeric type (Int or Real)? or do
     // this somewhere else?
+    dtypes::FormToken::Num(-1.0)
 }
 
 
@@ -188,10 +228,43 @@ mod tests {
     }
 
     #[test]
-    fn parse_loc_ () {
-        // TODO
-        assert!(true);
+    fn buf_to_loc_or_num_token_correct_values () {
+        let token = buf_to_loc_or_num_token(&String::from("A1"), true);
+        assert!(matches!(token, dtypes::FormToken::Loc(_)), "failed to parse 'A1' as a FormToken::Loc");
+        let token = buf_to_loc_or_num_token(&String::from("1"), false);
+        assert!(matches!(token, dtypes::FormToken::Num(_)), "failed to parse 1 as a FormToken::Num");
+        let token = buf_to_loc_or_num_token(&String::from("1.234"), false);
+        assert!(matches!(token, dtypes::FormToken::Num(_)), "failed to parse 1 as a FormToken::Num");
     }
+
+    #[test]
+    fn parse_formula_expr_num () {
+        // parse a formula that only consists of a literal number
+        // literal Int
+        let expr = String::from("=1");
+        let token = parse_formula_expr(&expr);
+        assert!(matches!(token, dtypes::FormToken::Num(_)), "");
+        // literal Real
+        let expr = String::from("=1.234");
+        let token = parse_formula_expr(&expr);
+        assert!(matches!(token, dtypes::FormToken::Num(_)), "");
+        parse_formula_expr(&expr);
+    }
+
+    #[test]
+    fn parse_formula_expr_loc () {
+        // parse a formula that only consists of a literal cell location
+        let expr = String::from("=F2");
+        parse_formula_expr(&expr);
+    }
+
+    #[test]
+    fn parse_formula_expr_many () {
+        // parse a formula with a bunch of stuff
+        let tkn = parse_formula_expr(&String::from("=1+A1+2+B2+3"));
+        println!("doesn't matter: {:?}", tkn);
+    }
+
 }
 
 

@@ -24,3 +24,18 @@ pub struct Cell{
     pub val: CellVal,
     pub loc: CellLoc,
 }
+
+
+#[derive(Debug)]
+pub enum FormToken {
+    Num(f64),
+    Loc(CellLoc),
+    Op(String),
+}
+
+
+#[derive(Debug)]
+pub struct FormNode {
+    pub token: FormToken,
+
+}
