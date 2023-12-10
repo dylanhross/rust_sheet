@@ -155,7 +155,6 @@ class GUI:
         self._setup_win()
         self._setup_main_frm()
         self._setup_upper_frm()
-        #self._setup_mid_frm()
         self._setup_lower_frm()
         # init the backend 
         self._backend = Backend(self._txt_writeln)
@@ -370,8 +369,10 @@ class GUI:
     def _draw_sheet(self):
         """ 
         draw sheet (stored in the backend) into the canvas
-        actually just an alias for the _setup_mid_frm method 
         """
+        # clear out the existing cells, destroy widgets to hopefully
+        # cut down on memory usage over time?
+        self.mid_frm.destroy()
         self._setup_mid_frm()
 
 

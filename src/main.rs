@@ -5,11 +5,10 @@ use std::env;
 use std::process;
 
 
-
-
 mod dtypes;
 mod sheet;
 mod parsing;
+mod formulas;
 
 
 fn handle_subcommand (subcommand: &String, other_args: &[String], sheet: &mut sheet::Sheet) -> bool {
@@ -123,7 +122,7 @@ fn main () {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
     #[test]
     fn some_main_test_ () {

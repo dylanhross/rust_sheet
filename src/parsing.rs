@@ -95,7 +95,7 @@ pub fn parse_line (line: &String) -> (dtypes::CellLoc, dtypes::CellVal) {
     let mut space_flag = false;
     let mut paren_flag = false;
     for c in line.chars() {
-        if c != ' ' {
+        if c != ' ' || space_flag {
             if space_flag {
                 if paren_flag {
                     if c == ')' {
@@ -114,10 +114,30 @@ pub fn parse_line (line: &String) -> (dtypes::CellLoc, dtypes::CellVal) {
                 buf_loc.push(c);
             }
         } else {
+            // the first space encountered should be the one between
+            // the loc and the value, before it is encountered spaces
+            // are ignored but once that first space is encountered and
+            // space flag is set, then we need to not ignore spaces
             space_flag = true;
         }
     }
     (parse_loc(&buf_loc), parse_val(&buf_val))
+}
+
+
+
+
+pub fn parse_formula (_val: &String) -> () {
+    // ?
+    //let mut buf_loc = String::new();
+    //let mut buf_val = String::new();
+    //let mut space_flag = false;
+    //let mut paren_flag = false;
+    //for c in line.chars() {
+
+    // make sure that any references to cell locations
+    // evaluate to numeric type (Int or Real)? or do
+    // this somewhere else?
 }
 
 
@@ -148,7 +168,7 @@ mod tests {
         // would need to modify parser to handle stripping whitespace for
         // the rest of these test cases to work
         /*let cv = parse_val(&String::from("1.234 "));
-        assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as int");
+        assert!(matches!(cv, dtypes::CellVal::Real(_)), "failed to parse cell value as Real");
         let cv = parse_val(&String::from(" 1.234"));
         assert!(matches!(cv, CellVal::Int(_)), "failed to parse cell value as int");
         let cv = parse_val(&String::from(" 1.234 "));

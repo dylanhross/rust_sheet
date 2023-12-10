@@ -13,7 +13,6 @@ use crate::dtypes;
 use crate::parsing;
 
 
-
 fn read_lines<P> (filename: P) -> io::Result<io::Lines<io::BufReader<fs::File>>>
 where P: AsRef<path::Path>, {
     // taken from https://doc.rust-lang.org/rust-by-example/std_misc/file/read_lines.html
@@ -162,6 +161,14 @@ impl Sheet {
         }
     }
 
+
+    fn eval_formula_cell (&self, _val: &dtypes::CellVal) -> dtypes::CellVal {
+        
+        
+        //dtypes::CellVal::Int(69)
+        dtypes::CellVal::Text(String::from("#ERR"))
+    }
+
     pub fn read_sheet (&self) {
         // first print <n_cols> <n_rows>
         println!("{} {}", self.n_cols, self.n_rows);
@@ -174,9 +181,8 @@ impl Sheet {
                 // evaluate and print result of Formula cells
                 match cell.val {
                     dtypes::CellVal::Formula(_) => {
-                        eprintln!("IDK how to print out a Formula cell yet");
-                        let temp_disp_val = String::from("Text(\"#ERR\")");
-                        println!("{}{} {}", cell.loc.col, cell.loc.row, &temp_disp_val);
+                        let display_val = self.eval_formula_cell(&cell.val);
+                        println!("{}{} {:?}", cell.loc.col, cell.loc.row, display_val);
                     }
                     _ => {
                         println!("{}{} {:?}", cell.loc.col, cell.loc.row, cell.val);
@@ -290,7 +296,7 @@ impl Sheet {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
     #[test]
     fn some_sheet_test_ () {
