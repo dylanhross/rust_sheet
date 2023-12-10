@@ -13,6 +13,7 @@ pub enum CellVal {
 
 
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct CellLoc {
     pub col: String,
     pub row: usize,
@@ -27,15 +28,21 @@ pub struct Cell{
 
 
 #[derive(Debug)]
+#[derive(Clone)]
 pub enum FormToken {
     Num(f64),
     Loc(CellLoc),
-    Op(String),
+    BinOp(String),
 }
+
+
+pub type TknLink = Option<Box<TknNode>>;
 
 
 #[derive(Debug)]
-pub struct FormNode {
+pub struct TknNode {
     pub token: FormToken,
-
+    pub left: TknLink,
+    pub right: TknLink,
 }
+

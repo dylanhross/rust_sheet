@@ -4,8 +4,9 @@
 
 
 use std::process;
+use std::mem;
 
-use crate::dtypes::{self, FormToken};
+use crate::dtypes::{self, FormToken, TknLink, TknNode};
 
 
 pub fn parse_loc (loc_arg: &String) -> dtypes::CellLoc {
@@ -142,7 +143,7 @@ fn buf_to_loc_or_num_token (buf: &String, alpha_flag: bool) -> FormToken {
 }
 
 
-fn tokenize_expr (expr: &String) -> Vec<FormToken> {
+fn tokenize_expr (expr: &String) -> Vec<dtypes::FormToken> {
     // create a vector of tokens in the order they were parsed from an expression
     let mut buf = String::new();
     let mut tokens: Vec<FormToken> = Vec::new();
@@ -156,7 +157,7 @@ fn tokenize_expr (expr: &String) -> Vec<FormToken> {
                 buf.clear();
                 alpha_flag = false;
             }
-            tokens.push(dtypes::FormToken::Op(c.to_string()));
+            tokens.push(dtypes::FormToken::BinOp(c.to_string()));
         } else if c != '=' {
             if c.is_alphabetic() {
                 alpha_flag = true;
@@ -171,9 +172,59 @@ fn tokenize_expr (expr: &String) -> Vec<FormToken> {
 }
 
 
+#[derive(Debug)]
+struct TknTree {
+    root: dtypes::TknLink,
+}
+
+
+impl TknTree {
+    fn new() -> Self {
+        TknTree { root: None}
+    }
+
+    fn push(&mut self, token: FormToken) {
+        let new_node = Box::new(dtypes::TknNode {
+            token,
+            left: self.root.take(),
+            right: None
+        });
+        self.root = dtypes::TknLink::Some(new_node);
+    }
+}
+
+fn tokens_to_tree (tokens: &mut Vec<dtypes::FormToken>) -> TknTree {
+    let mut tree = TknTree::new();
+    let mut token_it = tokens.iter_mut();
+    // push the first token to the tree
+    tree.push(token_it.next().unwrap().clone());
+    while let Some(token) = token_it.next() {
+        match token {
+            dtypes::FormToken::BinOp(op) => {
+                // push the binop then get the next token and set the right side to that
+                tree.push(token.clone());
+                let new_node = Box::new(dtypes::TknNode {
+                    token: token_it.next().unwrap().clone(),
+                    left: None,
+                    right: None,
+                });
+                let root = tree.root.as_mut().unwrap();
+                root.right = dtypes::TknLink::Some(new_node);
+            },
+            _ => tree.push(token.clone())
+        } 
+    }
+    tree
+}
+
+
 pub fn parse_formula_expr (expr: &String) -> dtypes::FormToken {
-    let tokens = tokenize_expr(expr);
+    let mut tokens = tokenize_expr(expr);
+    println!("--------------------");
     println!("tokens: {:?}", tokens);
+    let tree = tokens_to_tree(&mut tokens);
+    println!("--------------------");
+    println!("tree: {:?}", tree);
     // make sure that any references to cell locations
     // evaluate to numeric type (Int or Real)? or do
     // this somewhere else?

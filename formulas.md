@@ -41,6 +41,67 @@ Parse tree for expression `=1+2+3`
       "1"     "2"
 ```
 
+### Parse Example in Code
+The formula: `=1+A1+2+B2+3`
+
+Gets parsed into a list of tokens:
+```rust
+[
+    Num(1.0), 
+    BinOp("+"),
+    Loc(CellLoc { col: "A", row: 1 }), 
+    BinOp("+"), 
+    Num(2.0), 
+    BinOp("+"), 
+    Loc(CellLoc { col: "B", row: 2 }), 
+    BinOp("+"), Num(3.0)
+]
+```
+
+Which makes a parse tree:
+```rust
+TknTree { 
+    root: Some(TknNode { 
+        token: BinOp("+"), 
+        left: Some(TknNode { 
+            token: BinOp("+"), 
+            left: Some(TknNode { 
+                token: BinOp("+"), 
+                left: Some(TknNode { 
+                    token: BinOp("+"), 
+                    left: Some(TknNode { 
+                        token: Num(1.0), 
+                        left: None, 
+                        right: None 
+                    }), 
+                    right: Some(TknNode { 
+                        token: Loc(CellLoc { col: "A", row: 1 }), 
+                        left: None, 
+                        right: None 
+                    }) 
+                }), 
+                right: Some(TknNode {
+                    token: Num(2.0), 
+                    left: None, 
+                    right: None 
+                }) 
+            }), 
+            right: Some(TknNode { 
+                token: Loc(CellLoc { col: "B", row: 2 }), 
+                left: None, 
+                right: None 
+            }) 
+        }), 
+        right: Some(TknNode { 
+            token: Num(3.0), 
+            left: None, 
+            right: None 
+        }) 
+    }) 
+}
+```
+
+
 ## Evaluation
 * for a `<lit>` eval returns the value
 * for a `<binexpr>` eval returns the result of its operator applied to the values from its two operands
@@ -48,6 +109,8 @@ Parse tree for expression `=1+2+3`
 ## Implementation Strategy
 - basic datatypes for tokens parsed from an expression
 - parsing function that parses an expression and creates tokens
+- take a vector of tokens and convert into a tree structure
+- compute the value of the expression by evaluating the tree from the bottom up
 
 
 
