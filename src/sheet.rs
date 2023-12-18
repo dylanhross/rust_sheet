@@ -10,7 +10,7 @@ use std::mem;
 use std::cmp;
 
 use crate::dtypes::CellVal;
-use crate::{dtypes, formulas, parsing};
+use crate::{dtypes, parsing};
 
 
 fn read_lines<P> (filename: P) -> io::Result<io::Lines<io::BufReader<fs::File>>>
@@ -161,24 +161,57 @@ impl Sheet {
         }
     }
 
-    fn eval_tree (&self, tree: formulas::TknTree) -> Option<dtypes::CellVal> {
-        let mut current = tree.root;
-        match current {
+    fn eval_tree (&self, root: dtypes::TknLink) -> Option<f64> {
+        match root {
             Some(node) => {
                 match node.token {
-                    dtypes::FormToken::Num(num) => Option::Some(CellVal::Real(num)),
-                    dtypes::FormToken::Loc(loc) => self.get_cell(loc),
+                    dtypes::FormToken::Num(num) => Option::Some(num),
+                    dtypes::FormToken::Loc(loc) => {
+                        if let Some(cv) = self.get_cell(loc) {
+                            match cv {
+                                dtypes::CellVal::Int(v) => {
+                                    Option::Some(v as f64)
+                                },    
+                                dtypes::CellVal::Real(v) => {
+                                    Option::Some(v)
+                                },
+                                _ => Option::None
+                            }
+                        } else {
+                            Option::None
+                        }
+                    },
                     dtypes::FormToken::BinOp(op) => {
                         match op {
-                            _ => Option::None
+                            dtypes::Op::Plus => {
+                                if let Some(left_val) = self.eval_tree(node.left) {
+                                    if let Some(right_val) = self.eval_tree(node.right) {
+                                        Option::Some(left_val + right_val) 
+                                    } else {
+                                        Option::None
+                                    }
+                                } else {
+                                    Option::None
+                                }
+                            },
+                            dtypes::Op::Minus => {
+                                if let Some(left_val) = self.eval_tree(node.left) {
+                                    if let Some(right_val) = self.eval_tree(node.right) {
+                                        Option::Some(left_val - right_val) 
+                                    } else {
+                                        Option::None
+                                    }
+                                } else {
+                                    Option::None
+                                }
+                            },
                         }
                     },
                 }
             },
-            // empty tree -> return no CellVal
+            // empty tree -> return no value
             None => Option::None,
         }  
-        //Option::Some(dtypes::CellVal::Real(69.420))
     }
 
     pub fn eval_formula_cell (&self, cell_val: &dtypes::CellVal) -> dtypes::CellVal {
@@ -187,9 +220,9 @@ impl Sheet {
         match tree_res {
             Some(tree) => {
                 // step 2: evaluate token tree into a cell value
-                let cv_res = self.eval_tree(tree);
+                let cv_res = self.eval_tree(tree.root);
                 match cv_res {
-                    Some(cv) => cv,
+                    Some(cv) => dtypes::CellVal::Real(cv),
                     None => dtypes::CellVal::Text(String::from("#ERR")),
                 }
             },
@@ -333,12 +366,22 @@ mod tests {
         // load sheet state from file
         sheet.load_sheet();
         // build a tree from a formula
-        let cell_val = dtypes::CellVal::Formula(String::from("=1+A1+2+B3+3"));
+        let cell_val = dtypes::CellVal::Formula(String::from("=1-A1+2-B3+3"));
         let tree = parsing::parse_formula_expr(&cell_val).unwrap();
         eprintln!("--------------------");
         eprintln!("tree: {:?}", tree);
         eprintln!("--------------------");
-        if let Some(eval_cell_val) = sheet.eval_tree(tree) {
+        if let Some(eval_cell_val) = sheet.eval_tree(tree.root) {
+            println!("eval_cell_val: {:?}", eval_cell_val);
+        }
+        eprintln!("--------------------");
+        // build a tree from a formula
+        let cell_val = dtypes::CellVal::Formula(String::from("=1+2+3-4+5"));
+        let tree = parsing::parse_formula_expr(&cell_val).unwrap();
+        eprintln!("--------------------");
+        eprintln!("tree: {:?}", tree);
+        eprintln!("--------------------");
+        if let Some(eval_cell_val) = sheet.eval_tree(tree.root) {
             println!("eval_cell_val: {:?}", eval_cell_val);
         }
         eprintln!("--------------------");

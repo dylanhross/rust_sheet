@@ -88,6 +88,7 @@ class Backend:
         self.n_cols, self.n_rows = [int(_) for _ in nc_nr.split()]
         self._fill_sheet_with_nones()
         for cell_line in cell_lines:
+            print("cell line: '{}'".format(cell_line))
             loc, val = cell_line.split(maxsplit=1)
             col, row = self._parse_loc(loc)
             val = self._parse_val(val)

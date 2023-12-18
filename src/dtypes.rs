@@ -26,12 +26,17 @@ pub struct Cell{
 }
 
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
+pub enum Op {
+    Plus,
+    Minus,
+}
+
+#[derive(Debug, Clone)]
 pub enum FormToken {
     Num(f64),
     Loc(CellLoc),
-    BinOp(String),
+    BinOp(Op),
 }
 
 

@@ -145,7 +145,7 @@ fn buf_to_loc_or_num_token (buf: &String, alpha_flag: bool) -> dtypes::FormToken
 }
 
 
-fn tokenize_expr (expr: &String) -> Vec<dtypes::FormToken> {
+fn tokenize_expr (expr: &String) -> Option<Vec<dtypes::FormToken>> {
     // create a vector of tokens in the order they were parsed from an expression
     let mut buf = String::new();
     let mut tokens: Vec<dtypes::FormToken> = Vec::new();
@@ -159,7 +159,14 @@ fn tokenize_expr (expr: &String) -> Vec<dtypes::FormToken> {
                 buf.clear();
                 alpha_flag = false;
             }
-            tokens.push(dtypes::FormToken::BinOp(c.to_string()));
+            match c {
+                '+' => tokens.push(dtypes::FormToken::BinOp(dtypes::Op::Plus)),
+                '-' => tokens.push(dtypes::FormToken::BinOp(dtypes::Op::Minus)),
+                _ => {
+                    eprintln!("unreachable");
+                    return Option::None
+                },
+            };
         } else if c != '=' {
             if c.is_alphabetic() {
                 alpha_flag = true;
@@ -170,15 +177,18 @@ fn tokenize_expr (expr: &String) -> Vec<dtypes::FormToken> {
     // add whatever is in the buffer to tokens
     tokens.push(buf_to_loc_or_num_token(&buf, alpha_flag));
     // return the vector of tokens
-    tokens
+    Option::Some(tokens)
 }
 
 
 pub fn parse_formula_expr (cell_val: &dtypes::CellVal) -> Option<formulas::TknTree> {
     if let CellVal::Formula(expr) = cell_val {
-        let mut tokens = tokenize_expr(&expr);
-        let tree = formulas::tokens_to_tree(&mut tokens);
-        Option::Some(tree)
+        if let Some(mut tokens) = tokenize_expr(&expr) {
+            let tree = formulas::tokens_to_tree(&mut tokens);
+            Option::Some(tree)
+        } else {
+            Option::None
+        }
     } else { 
         Option::None
     }
