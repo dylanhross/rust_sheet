@@ -9,8 +9,8 @@ use std::path;
 use std::mem;
 use std::cmp;
 
-use crate::dtypes;
-use crate::parsing;
+use crate::dtypes::CellVal;
+use crate::{dtypes, formulas, parsing};
 
 
 fn read_lines<P> (filename: P) -> io::Result<io::Lines<io::BufReader<fs::File>>>
@@ -161,14 +161,42 @@ impl Sheet {
         }
     }
 
-
-    fn eval_formula_cell (&self, _val: &dtypes::CellVal) -> dtypes::CellVal {
-        
-        
-        //dtypes::CellVal::Int(69)
-        dtypes::CellVal::Text(String::from("#ERR"))
+    fn eval_tree (&self, tree: formulas::TknTree) -> Option<dtypes::CellVal> {
+        let mut current = tree.root;
+        match current {
+            Some(node) => {
+                match node.token {
+                    dtypes::FormToken::Num(num) => Option::Some(CellVal::Real(num)),
+                    dtypes::FormToken::Loc(loc) => self.get_cell(loc),
+                    dtypes::FormToken::BinOp(op) => {
+                        match op {
+                            _ => Option::None
+                        }
+                    },
+                }
+            },
+            // empty tree -> return no CellVal
+            None => Option::None,
+        }  
+        //Option::Some(dtypes::CellVal::Real(69.420))
     }
 
+    pub fn eval_formula_cell (&self, cell_val: &dtypes::CellVal) -> dtypes::CellVal {
+        // step 1: parse into token tree
+        let tree_res = parsing::parse_formula_expr(cell_val);
+        match tree_res {
+            Some(tree) => {
+                // step 2: evaluate token tree into a cell value
+                let cv_res = self.eval_tree(tree);
+                match cv_res {
+                    Some(cv) => cv,
+                    None => dtypes::CellVal::Text(String::from("#ERR")),
+                }
+            },
+            None => dtypes::CellVal::Text(String::from("#ERR")),
+        }
+    }
+    
     pub fn read_sheet (&self) {
         // first print <n_cols> <n_rows>
         println!("{} {}", self.n_cols, self.n_rows);
@@ -192,27 +220,28 @@ impl Sheet {
         }
     }
 
-    pub fn read_cell (&self, loc: dtypes::CellLoc) {
-        // prints the value of the selected cell to stdout
-        // prints nothing if there is no cell there
-        // Importantly, for formulas this is the the raw value (i.e. the formula
-        // definition) instead of the evaluated value that is printed by read_sheet
-        let mut found_cell = false;
+    fn get_cell (&self, loc: dtypes::CellLoc) -> Option<CellVal> {
         let col_idx = Sheet::col_to_index(&loc.col);
         if col_idx < self.n_cols {
             let col = &self.cols[col_idx];
             for cell in col {
                 if cell.loc.row == loc.row {
                     eprintln!("found a cell at loc: {:?}", loc);
-                    println!("{:?}", cell.val);
-                    found_cell = true;
-                    break;
+                    return Option::Some(cell.val.clone())
                 }
             }
         }
-        // report to stderr that we could not find a cell
-        if !found_cell {
-            eprintln!("did not find a cell at loc: {:?}", loc);
+        eprintln!("did not find a cell at loc: {:?}", loc);
+        Option::None
+    }
+
+    pub fn read_cell (&self, loc: dtypes::CellLoc) {
+        // prints the value of the selected cell to stdout
+        // prints nothing if there is no cell there
+        // Importantly, for formulas this is the the raw value (i.e. the formula
+        // definition) instead of the evaluated value that is printed by read_sheet
+        if let Some(cell_val) = self.get_cell(loc) {
+            println!("{:?}", cell_val);
         }
     }
 
@@ -293,14 +322,25 @@ impl Sheet {
 }
 
 
-
 #[cfg(test)]
 mod tests {
-    //use super::*;
+    use super::*;
 
-    /*#[test]
-    fn some_sheet_test_ () {
-        // TODO
-        assert!(true);
-    }*/
+    #[test]
+    fn test_sheet_eval_tree () {
+        // init the sheet
+        let mut sheet = Sheet::new();
+        // load sheet state from file
+        sheet.load_sheet();
+        // build a tree from a formula
+        let cell_val = dtypes::CellVal::Formula(String::from("=1+A1+2+B3+3"));
+        let tree = parsing::parse_formula_expr(&cell_val).unwrap();
+        eprintln!("--------------------");
+        eprintln!("tree: {:?}", tree);
+        eprintln!("--------------------");
+        if let Some(eval_cell_val) = sheet.eval_tree(tree) {
+            println!("eval_cell_val: {:?}", eval_cell_val);
+        }
+        eprintln!("--------------------");
+    }
 }

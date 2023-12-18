@@ -3,7 +3,7 @@
 */
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CellVal {
     Int(i32),
     Real(f64),
@@ -12,8 +12,7 @@ pub enum CellVal {
 }
 
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CellLoc {
     pub col: String,
     pub row: usize,

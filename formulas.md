@@ -54,7 +54,8 @@ Gets parsed into a list of tokens:
     Num(2.0), 
     BinOp("+"), 
     Loc(CellLoc { col: "B", row: 2 }), 
-    BinOp("+"), Num(3.0)
+    BinOp("+"), 
+    Num(3.0)
 ]
 ```
 
