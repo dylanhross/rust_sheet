@@ -9,7 +9,6 @@ use std::path;
 use std::mem;
 use std::cmp;
 
-use crate::dtypes::CellVal;
 use crate::{dtypes, parsing};
 
 
@@ -253,7 +252,7 @@ impl Sheet {
         }
     }
 
-    fn get_cell (&self, loc: dtypes::CellLoc) -> Option<CellVal> {
+    fn get_cell (&self, loc: dtypes::CellLoc) -> Option<dtypes::CellVal> {
         let col_idx = Sheet::col_to_index(&loc.col);
         if col_idx < self.n_cols {
             let col = &self.cols[col_idx];
